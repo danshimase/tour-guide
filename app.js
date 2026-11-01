@@ -24,6 +24,7 @@
     started: false,
     selectedId: null,
     routeId: null,
+    customRoute: [],
     heroAutoId: null,
     heroId: null,
     editMode: false,
@@ -99,8 +100,14 @@
 
   // ---- コース（どのスポットを、どの順番で回るか）----
   // routes が無い台本は、全スポットを番号順に回る1コースとして扱う
+  const CUSTOM_ID = '__custom__';
+
   function activeRoute() {
     const t = state.tour;
+    if (state.routeId === CUSTOM_ID) {
+      const ids = state.customRoute.filter((id) => !!findSpot(id));
+      if (ids.length) return { id: CUSTOM_ID, name: '自分で選んだコース', spots: ids, custom: true };
+    }
     if (t.routes && t.routes.length) {
       return t.routes.find((r) => r.id === state.routeId) || t.routes[0];
     }
@@ -121,9 +128,22 @@
     return i >= 0 ? i + 1 : s.no;
   }
 
+  // 台本に保存されているコース（「自分で選んだコース」は含まない）。無ければ null
   function explicitRoute() {
     const t = state.tour;
-    return t.routes && t.routes.length ? activeRoute() : null;
+    const r = activeRoute();
+    return t.routes && t.routes.length && !r.custom ? r : null;
+  }
+
+  // コース選択に並べる候補
+  function routeChoices() {
+    const t = state.tour;
+    const rows = t.routes.length
+      ? t.routes.map((r) => ({ id: r.id, name: r.name, n: r.spots.length }))
+      : [{ id: '__all__', name: '全スポット', n: t.spots.length }];
+    const custom = state.customRoute.filter((id) => !!findSpot(id));
+    if (custom.length) rows.push({ id: CUSTOM_ID, name: '自分で選んだコース', n: custom.length });
+    return rows;
   }
 
   // =========================================================
@@ -260,7 +280,9 @@
     state.selectedId = null;
     state.heroAutoId = null;
     state.routeId = null;
+    state.customRoute = [];
     await kvSet('routeId', null);
+    await kvSet('customRoute', []);
     await saveTour();
     rebuildProjector();
     renderAll();
@@ -436,9 +458,8 @@
     if (t) {
       const rs = routeSpots();
       $('#chipProgress').textContent = `見学済み ${rs.filter((s) => state.visited.has(s.id)).length} / ${rs.length}`;
-      const hasRoutes = t.routes.length > 0;
-      $('#btnRoute').classList.toggle('hidden', !hasRoutes);
-      $('#btnRoute').textContent = hasRoutes ? `コース：${activeRoute().name}` : '';
+      $('#btnRoute').classList.remove('hidden');
+      $('#btnRoute').textContent = `コース：${activeRoute().name}`;
     } else {
       $('#chipProgress').textContent = '';
     }
@@ -1180,6 +1201,13 @@
 
   // コースが設定されている台本で新しいスポットを作ったときは、いまのコースの末尾に入れる
   function addToActiveRoute(id) {
+    if (activeRoute().custom) {
+      if (!state.customRoute.includes(id)) {
+        state.customRoute.push(id);
+        kvSet('customRoute', state.customRoute);
+      }
+      return;
+    }
     const r = explicitRoute();
     if (r && !r.spots.includes(id)) r.spots.push(id);
   }
@@ -1201,9 +1229,9 @@
 
   function openRoutePick() {
     const cur = activeRoute();
-    $('#routePickList').innerHTML = state.tour.routes.map((r) =>
+    $('#routePickList').innerHTML = routeChoices().map((r) =>
       `<button class="route-opt${r.id === cur.id ? ' current' : ''}" type="button" data-route="${esc(r.id)}">` +
-      `<span class="route-opt-name">${esc(r.name)}</span><span class="route-opt-count">${r.spots.length} か所</span></button>`
+      `<span class="route-opt-name">${esc(r.name)}</span><span class="route-opt-count">${r.n} か所</span></button>`
     ).join('');
     $('#chkResetVisited').checked = true;
     $('#dlgRoutePick').showModal();
@@ -1216,6 +1244,9 @@
 
   function renderRouteEdit() {
     const r = explicitRoute();
+    $('#routeEmpty').textContent = activeRoute().custom
+      ? 'いまは「自分で選んだコース」を使っています。「＋ 新しいコース」を押すと、この順番をコースとして保存できます。'
+      : 'コースはまだありません。「新しいコース」を押すと、いまの全スポットをコピーしたコースができます。';
     $('#routeEmpty').classList.toggle('hidden', !!r);
     $('#routeBody').classList.toggle('hidden', !r);
     $('#btnRouteDel').classList.toggle('hidden', !r);
@@ -1302,6 +1333,93 @@
     state.selectedId = null;
     state.heroAutoId = null;
     await commitRoutes();
+  }
+
+  // ---------------------------------------------------------
+  // 自分で選ぶ（スポットを1つずつタップして、回る順番を決める）
+  // ---------------------------------------------------------
+  let customDraft = [];
+
+  function openCustom() {
+    customDraft = state.customRoute.filter((id) => !!findSpot(id));
+    renderCustom();
+    $('#dlgRoutePick').close();
+    $('#dlgCustom').showModal();
+  }
+
+  function renderCustom() {
+    $('#customList').innerHTML = state.tour.spots.map((s) => {
+      const i = customDraft.indexOf(s.id);
+      const on = i >= 0;
+      return `<li class="route-row cust-row${on ? ' on' : ''}" data-id="${esc(s.id)}">
+        <span class="cust-no">${on ? i + 1 : ''}</span>
+        <span class="route-row-name">${esc(s.name)}</span>
+        ${on ? `<button class="btn small" type="button" data-act="up" data-id="${esc(s.id)}"${i === 0 ? ' disabled' : ''} aria-label="上へ">↑</button>
+        <button class="btn small" type="button" data-act="down" data-id="${esc(s.id)}"${i === customDraft.length - 1 ? ' disabled' : ''} aria-label="下へ">↓</button>` : ''}
+      </li>`;
+    }).join('');
+    $('#customCount').textContent = `${customDraft.length} か所を選択中`;
+    $('#customError').textContent = '';
+  }
+
+  function customListClick(ev) {
+    const btn = ev.target.closest('[data-act]');
+    if (btn) {
+      const id = btn.dataset.id;
+      const i = customDraft.indexOf(id);
+      if (btn.dataset.act === 'up' && i > 0) {
+        [customDraft[i - 1], customDraft[i]] = [customDraft[i], customDraft[i - 1]];
+      } else if (btn.dataset.act === 'down' && i >= 0 && i < customDraft.length - 1) {
+        [customDraft[i + 1], customDraft[i]] = [customDraft[i], customDraft[i + 1]];
+      }
+      renderCustom();
+      return;
+    }
+    const li = ev.target.closest('.cust-row');
+    if (!li) return;
+    const id = li.dataset.id;
+    const i = customDraft.indexOf(id);
+    if (i >= 0) customDraft.splice(i, 1); else customDraft.push(id);
+    renderCustom();
+  }
+
+  async function startCustom() {
+    if (!customDraft.length) {
+      $('#customError').textContent = 'スポットを1つ以上選んでください';
+      return;
+    }
+    state.customRoute = customDraft.slice();
+    await kvSet('customRoute', state.customRoute);
+    await setRoute(CUSTOM_ID, true);
+    $('#dlgCustom').close();
+    toast(`自分で選んだコース（${state.customRoute.length} か所）で始めます`);
+  }
+
+  async function saveCustomAsRoute() {
+    if (!customDraft.length) {
+      $('#customError').textContent = 'スポットを1つ以上選んでください';
+      return;
+    }
+    // 台本の内容が変わるので、編集モードでなければPINを確認する
+    if (!state.editMode && !(await checkPin())) return;
+    const t = state.tour;
+    const name = prompt('コース名を入力してください', `コース${t.routes.length + 1}`);
+    if (!name || !name.trim()) return;
+    if (t.routes.length === 0) {
+      // 最初のコースを作ると「全スポット」の表示が消えるので、同じ内容のコースも残しておく
+      t.routes.push({ id: 'R0', name: '全スポット', spots: t.spots.map((s) => s.id) });
+    }
+    let n = t.routes.length + 1;
+    while (t.routes.some((r) => r.id === 'R' + n)) n++;
+    const r = { id: 'R' + n, name: name.trim(), spots: customDraft.slice() };
+    t.routes.push(r);
+    state.customRoute = customDraft.slice();
+    await kvSet('customRoute', state.customRoute);
+    await saveTour();
+    await setDirty(true);
+    await setRoute(r.id, true);
+    $('#dlgCustom').close();
+    toast(`コース「${r.name}」として保存しました。他のiPadへは「書き出す」で渡してください`, 4500);
   }
 
   function openSpotEditor(id) {
@@ -1452,6 +1570,8 @@
     if (!confirm(`「${s.name}」を削除しますか？`)) return;
     state.tour.spots = state.tour.spots.filter((x) => x.id !== editingId);
     state.tour.routes.forEach((r) => { r.spots = r.spots.filter((x) => x !== editingId); });
+    state.customRoute = state.customRoute.filter((x) => x !== editingId);
+    await kvSet('customRoute', state.customRoute);
     state.visited.delete(editingId);
     if (state.selectedId === editingId) state.selectedId = null;
     stopCapture();
@@ -1665,12 +1785,12 @@
     $('#app').classList.add('hidden');
     $('#welcomeNoData').classList.toggle('hidden', has);
     $('#welcomeHasData').classList.toggle('hidden', !has);
-    const hasRoutes = has && state.tour.routes.length > 0;
-    $('#welcomeRouteBox').classList.toggle('hidden', !hasRoutes);
-    if (hasRoutes) {
+    const choices = has ? routeChoices() : [];
+    $('#welcomeRouteBox').classList.toggle('hidden', choices.length < 2);
+    if (choices.length >= 2) {
       const cur = activeRoute().id;
-      $('#selWelcomeRoute').innerHTML = state.tour.routes.map((r) =>
-        `<option value="${esc(r.id)}"${r.id === cur ? ' selected' : ''}>${esc(r.name)}（${r.spots.length} か所）</option>`
+      $('#selWelcomeRoute').innerHTML = choices.map((r) =>
+        `<option value="${esc(r.id)}"${r.id === cur ? ' selected' : ''}>${esc(r.name)}（${r.n} か所）</option>`
       ).join('');
     }
     $('#welcomeTitle').textContent = has ? state.tour.title : '見学ガイド';
@@ -1735,6 +1855,13 @@
     // コース
     $('#btnRoute').addEventListener('click', openRoutePick);
     $('#btnRoutePickClose').addEventListener('click', () => $('#dlgRoutePick').close());
+    $('#btnCustomOpen').addEventListener('click', openCustom);
+    $('#btnCustomClose').addEventListener('click', () => $('#dlgCustom').close());
+    $('#btnCustomFromCur').addEventListener('click', () => { customDraft = activeRoute().spots.slice(); renderCustom(); });
+    $('#btnCustomClear').addEventListener('click', () => { customDraft = []; renderCustom(); });
+    $('#customList').addEventListener('click', customListClick);
+    $('#btnCustomStart').addEventListener('click', startCustom);
+    $('#btnCustomSave').addEventListener('click', saveCustomAsRoute);
     $('#routePickList').addEventListener('click', async (ev) => {
       const b = ev.target.closest('[data-route]');
       if (!b) return;
@@ -1900,9 +2027,10 @@
   async function init() {
     bindEvents();
     try {
-      const [tour, visited, settings, dirty, routeId] = await Promise.all([kvGet('tour'), kvGet('visited'), kvGet('settings'), kvGet('dirty'), kvGet('routeId')]);
+      const [tour, visited, settings, dirty, routeId, customRoute] = await Promise.all([kvGet('tour'), kvGet('visited'), kvGet('settings'), kvGet('dirty'), kvGet('routeId'), kvGet('customRoute')]);
       if (settings) Object.assign(state.settings, settings);
       state.routeId = typeof routeId === 'string' ? routeId : null;
+      state.customRoute = Array.isArray(customRoute) ? customRoute.map(String) : [];
       if (Array.isArray(visited)) state.visited = new Set(visited);
       state.dirty = !!dirty;
       if (tour) {

@@ -224,7 +224,27 @@
   <div class="dlg">
     <div class="dlg-head"><h3>見学コースを選ぶ</h3><button class="btn small" type="button" id="btnRoutePickClose">閉じる</button></div>
     <div class="route-pick-list" id="routePickList"></div>
+    <button class="route-opt route-opt-new" type="button" id="btnCustomOpen"><span class="route-opt-name">＋ 自分で選ぶ</span><span class="route-opt-count">スポットと順番を1つずつ決める</span></button>
     <label class="check"><input type="checkbox" id="chkResetVisited" checked> 切り替えるとき、見学済みの記録をリセットする</label>
+  </div>
+</dialog>
+
+<!-- 自分で選ぶ -->
+<dialog id="dlgCustom">
+  <div class="dlg">
+    <div class="dlg-head"><h3>自分で選ぶ</h3><button class="btn small" type="button" id="btnCustomClose">閉じる</button></div>
+    <p class="muted small">回りたいスポットを、回る順にタップしてください。もう一度タップすると外れます。選んだスポットは「↑」「↓」で順番を入れ替えられます。</p>
+    <div class="row-btns">
+      <button class="btn small" type="button" id="btnCustomFromCur">いまのコースから始める</button>
+      <button class="btn small" type="button" id="btnCustomClear">すべて外す</button>
+    </div>
+    <ul class="route-list" id="customList"></ul>
+    <p class="error small" id="customError"></p>
+    <div class="dlg-foot">
+      <span class="muted small cust-count" id="customCount"></span>
+      <button class="btn" type="button" id="btnCustomSave">コースとして保存</button>
+      <button class="btn primary" type="button" id="btnCustomStart">この順で開始</button>
+    </div>
   </div>
 </dialog>
 
