@@ -2051,6 +2051,19 @@
       navigator.storage.persist().catch(() => {});
     }
     if ('serviceWorker' in navigator) {
+      // 新しい版を取り込めたら、開き直さなくても自動で切り替える（説明の再生中や入力中は待つ）
+      const wasControlled = !!navigator.serviceWorker.controller;
+      let reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!wasControlled || reloaded) return;
+        reloaded = true;
+        const busy = state.speaking || state.placingId || document.querySelector('dialog[open]');
+        if (busy) {
+          toast('新しい版を取り込みました。アプリを開き直すと切り替わります', 6000);
+          return;
+        }
+        location.reload();
+      });
       navigator.serviceWorker.register('sw.js').catch(() => {});
     }
   }

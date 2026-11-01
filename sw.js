@@ -1,7 +1,7 @@
 'use strict';
 
 // 本体を更新したら、この番号を上げてください（iPad側のキャッシュが入れ替わります）
-const CACHE = 'tour-guide-v5';
+const CACHE = 'tour-guide-v6';
 
 const ASSETS = [
   './',
@@ -17,7 +17,12 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  // cache: 'reload' で、ブラウザやGitHub Pages側に残っている古いコピーを使わず、必ず最新を取り込む
+  event.waitUntil(
+    caches.open(CACHE)
+      .then((c) => c.addAll(ASSETS.map((u) => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (event) => {
