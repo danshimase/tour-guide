@@ -23,6 +23,7 @@
     watchId: null,
     started: false,
     selectedId: null,
+    routeId: null,
     heroAutoId: null,
     heroId: null,
     editMode: false,
@@ -94,6 +95,35 @@
 
   function findSpot(id) {
     return state.tour ? state.tour.spots.find((s) => s.id === id) || null : null;
+  }
+
+  // ---- コース（どのスポットを、どの順番で回るか）----
+  // routes が無い台本は、全スポットを番号順に回る1コースとして扱う
+  function activeRoute() {
+    const t = state.tour;
+    if (t.routes && t.routes.length) {
+      return t.routes.find((r) => r.id === state.routeId) || t.routes[0];
+    }
+    return { id: '__all__', name: '全スポット', spots: t.spots.map((s) => s.id), implicit: true };
+  }
+
+  function routeSpots() {
+    return activeRoute().spots.map(findSpot).filter(Boolean);
+  }
+
+  function inRoute(id) {
+    return activeRoute().spots.includes(id);
+  }
+
+  // 画面に出す番号：コース内の順番（コース外のスポットは本来の番号）
+  function dispNo(s) {
+    const i = activeRoute().spots.indexOf(s.id);
+    return i >= 0 ? i + 1 : s.no;
+  }
+
+  function explicitRoute() {
+    const t = state.tour;
+    return t.routes && t.routes.length ? activeRoute() : null;
   }
 
   // =========================================================
@@ -180,6 +210,24 @@
       });
     });
     out.spots.sort((a, b) => a.no - b.no);
+
+    out.routes = [];
+    if (Array.isArray(t.routes)) {
+      const routeIds = new Set();
+      t.routes.forEach((r, i) => {
+        if (!r || typeof r !== 'object') return;
+        let rid = String(r.id || 'R' + (i + 1)).trim();
+        while (routeIds.has(rid)) rid += '_';
+        routeIds.add(rid);
+        const seen = new Set();
+        const list = [];
+        (Array.isArray(r.spots) ? r.spots : []).forEach((sid) => {
+          const k = String(sid);
+          if (ids.has(k) && !seen.has(k)) { seen.add(k); list.push(k); }
+        });
+        out.routes.push({ id: rid, name: String(r.name || 'コース' + (i + 1)), spots: list });
+      });
+    }
     return out;
   }
 
@@ -211,6 +259,8 @@
     }
     state.selectedId = null;
     state.heroAutoId = null;
+    state.routeId = null;
+    await kvSet('routeId', null);
     await saveTour();
     rebuildProjector();
     renderAll();
@@ -337,20 +387,22 @@
   function computeOrder() {
     const p = state.pos;
     const good = !!p && p.acc <= state.settings.accLimit;
-    const items = state.tour.spots.map((s) => ({
+    const rs = routeSpots();
+    const idx = new Map(rs.map((s, i) => [s.id, i]));
+    const items = rs.map((s) => ({
       s,
       d: p && s.lat !== null && s.lng !== null ? haversine(p.lat, p.lng, s.lat, s.lng) : null,
     }));
     if (good) {
-      items.sort((a, b) => (a.d === null) - (b.d === null) || (a.d || 0) - (b.d || 0) || a.s.no - b.s.no);
+      items.sort((a, b) => (a.d === null) - (b.d === null) || (a.d || 0) - (b.d || 0) || idx.get(a.s.id) - idx.get(b.s.id));
     } else {
-      items.sort((a, b) => a.s.no - b.s.no);
+      items.sort((a, b) => idx.get(a.s.id) - idx.get(b.s.id));
     }
     return { items, good };
   }
 
   function pickHero(order) {
-    if (state.selectedId && findSpot(state.selectedId)) {
+    if (state.selectedId && findSpot(state.selectedId) && inRoute(state.selectedId)) {
       return { id: state.selectedId, reason: 'selected' };
     }
     if (order.good) {
@@ -381,7 +433,16 @@
   function renderHeader() {
     const t = state.tour;
     $('#tourTitle').textContent = t ? t.title : '見学ガイド';
-    $('#chipProgress').textContent = t ? `見学済み ${t.spots.filter((s) => state.visited.has(s.id)).length} / ${t.spots.length}` : '';
+    if (t) {
+      const rs = routeSpots();
+      $('#chipProgress').textContent = `見学済み ${rs.filter((s) => state.visited.has(s.id)).length} / ${rs.length}`;
+      const hasRoutes = t.routes.length > 0;
+      $('#btnRoute').classList.toggle('hidden', !hasRoutes);
+      $('#btnRoute').textContent = hasRoutes ? `コース：${activeRoute().name}` : '';
+    } else {
+      $('#chipProgress').textContent = '';
+    }
+    $('#btnRouteEdit').classList.toggle('hidden', !state.editMode);
     $('#chipEdit').classList.toggle('hidden', !state.editMode);
     $('#chipDirty').classList.toggle('hidden', !state.dirty);
     $('#btnLang').textContent = state.lang === 'en' ? 'English' : '日本語';
@@ -458,7 +519,8 @@
     pins.textContent = '';
     route.textContent = '';
 
-    const placed = t.spots.map((s) => ({ s, p: spotXY(s) })).filter((o) => o.p);
+    const rs = routeSpots();
+    const placed = rs.map((s) => ({ s, p: spotXY(s) })).filter((o) => o.p);
     if (placed.length >= 2) {
       const pts = placed.map((o) => `${o.p.x.toFixed(1)},${o.p.y.toFixed(1)}`).join(' ');
       route.appendChild(svgEl('polyline', { points: pts, class: 'route', 'stroke-width': Math.max(3, r / 5) }));
@@ -472,7 +534,7 @@
       g.appendChild(svgEl('circle', { class: 'pulse', r, 'stroke-width': r / 4 }));
       g.appendChild(svgEl('circle', { class: 'pin-body', r, 'stroke-width': r / 6 }));
       const tx = svgEl('text', { 'font-size': r * 1.05 });
-      tx.textContent = String(s.no);
+      tx.textContent = String(dispNo(s));
       g.appendChild(tx);
       const label = svgEl('text', { class: 'pin-label', x: 0, y: r * 2.1, 'font-size': r * 0.85, 'text-anchor': 'middle', 'stroke-width': r / 3.5 });
       label.textContent = spotName(s);
@@ -486,7 +548,7 @@
     });
 
     const note = $('#mapNote');
-    const unplaced = t.spots.length - placed.length;
+    const unplaced = rs.length - placed.length;
     const msgs = [];
     if (unplaced > 0) msgs.push(`地図に未配置のスポット ${unplaced} 件`);
     if (t.map && !state.projector) msgs.push('現在地表示には、緯度経度と地図位置の両方を持つスポットが3件以上必要です');
@@ -534,7 +596,7 @@
       heroEl.innerHTML = `
         <div class="hero-reason">${esc(reasonText)}</div>
         <div class="hero-main">
-          <div class="hero-no">${esc(s.no)}</div>
+          <div class="hero-no">${esc(dispNo(s))}</div>
           <div>
             <div class="hero-name">${esc(spotName(s))}</div>
             <div class="hero-meta"><span>${esc(formatDist(item.d))}</span>${visited ? '<span>見学済み</span>' : ''}</div>
@@ -559,7 +621,7 @@
         ? `<small>${esc(s.id)}${s.lat === null ? '・緯度経度なし' : ''}${state.tour.map && s.x === null ? '・地図位置なし' : ''}</small>`
         : '';
       return `<li class="${cls.join(' ')}" data-id="${esc(s.id)}">
-        <span class="spot-no">${esc(s.no)}</span>
+        <span class="spot-no">${esc(dispNo(s))}</span>
         <span class="spot-name">${esc(spotName(s))}${sub}</span>
         ${state.visited.has(s.id) ? `<span class="spot-check">${ICONS.check}</span>` : ''}
         <span class="spot-dist">${i.d !== null ? esc(formatDist(i.d)) : ''}</span>
@@ -780,7 +842,7 @@
 
   function openStage() {
     const s = findSpot(state.speaking.spotId);
-    $('#stageNo').textContent = String(s.no);
+    $('#stageNo').textContent = String(dispNo(s));
     $('#stageTitle').textContent = spotName(s);
     const bg = $('#stageBg');
     bg.style.backgroundImage = s.image ? `url("${s.image.replace(/"/g, '%22')}")` : '';
@@ -1116,6 +1178,132 @@
   let editingPhoto = '';
   let captureWatch = null;
 
+  // コースが設定されている台本で新しいスポットを作ったときは、いまのコースの末尾に入れる
+  function addToActiveRoute(id) {
+    const r = explicitRoute();
+    if (r && !r.spots.includes(id)) r.spots.push(id);
+  }
+
+  // ---------------------------------------------------------
+  // コースの切り替え・編集
+  // ---------------------------------------------------------
+  async function setRoute(id, resetVisited) {
+    state.routeId = id;
+    await kvSet('routeId', id);
+    if (resetVisited) {
+      state.visited = new Set();
+      await saveVisited();
+    }
+    state.selectedId = null;
+    state.heroAutoId = null;
+    renderAll();
+  }
+
+  function openRoutePick() {
+    const cur = activeRoute();
+    $('#routePickList').innerHTML = state.tour.routes.map((r) =>
+      `<button class="route-opt${r.id === cur.id ? ' current' : ''}" type="button" data-route="${esc(r.id)}">` +
+      `<span class="route-opt-name">${esc(r.name)}</span><span class="route-opt-count">${r.spots.length} か所</span></button>`
+    ).join('');
+    $('#chkResetVisited').checked = true;
+    $('#dlgRoutePick').showModal();
+  }
+
+  function openRouteEdit() {
+    renderRouteEdit();
+    $('#dlgRouteEdit').showModal();
+  }
+
+  function renderRouteEdit() {
+    const r = explicitRoute();
+    $('#routeEmpty').classList.toggle('hidden', !!r);
+    $('#routeBody').classList.toggle('hidden', !r);
+    $('#btnRouteDel').classList.toggle('hidden', !r);
+    if (!r) return;
+    $('#rName').value = r.name;
+    $('#routeIn').innerHTML = r.spots.map((id, i) => {
+      const s = findSpot(id);
+      if (!s) return '';
+      return `<li class="route-row">
+        <span class="spot-no">${i + 1}</span>
+        <span class="route-row-name">${esc(s.name)}</span>
+        <button class="btn small" type="button" data-act="up" data-id="${esc(id)}"${i === 0 ? ' disabled' : ''} aria-label="上へ">↑</button>
+        <button class="btn small" type="button" data-act="down" data-id="${esc(id)}"${i === r.spots.length - 1 ? ' disabled' : ''} aria-label="下へ">↓</button>
+        <button class="btn small" type="button" data-act="edit" data-id="${esc(id)}">編集</button>
+        <button class="btn small danger" type="button" data-act="remove" data-id="${esc(id)}">外す</button>
+      </li>`;
+    }).join('');
+    const out = state.tour.spots.filter((s) => !r.spots.includes(s.id));
+    $('#routeOut').innerHTML = out.length
+      ? out.map((s) => `<li class="route-row">
+        <span class="route-row-name">${esc(s.name)}</span>
+        <button class="btn small" type="button" data-act="edit" data-id="${esc(s.id)}">編集</button>
+        <button class="btn small" type="button" data-act="add" data-id="${esc(s.id)}">＋ 追加</button>
+      </li>`).join('')
+      : '<li class="muted small route-row">すべてのスポットがこのコースに入っています</li>';
+  }
+
+  async function commitRoutes() {
+    await saveTour();
+    await setDirty(true);
+    renderRouteEdit();
+    renderAll();
+  }
+
+  async function routeEditClick(ev) {
+    const btn = ev.target.closest('[data-act]');
+    const r = explicitRoute();
+    if (!btn || !r) return;
+    const id = btn.dataset.id;
+    const act = btn.dataset.act;
+    const i = r.spots.indexOf(id);
+    if (act === 'edit') {
+      $('#dlgRouteEdit').close();
+      openSpotEditor(id);
+      return;
+    }
+    if (act === 'up' && i > 0) {
+      [r.spots[i - 1], r.spots[i]] = [r.spots[i], r.spots[i - 1]];
+    } else if (act === 'down' && i >= 0 && i < r.spots.length - 1) {
+      [r.spots[i + 1], r.spots[i]] = [r.spots[i], r.spots[i + 1]];
+    } else if (act === 'remove' && i >= 0) {
+      r.spots.splice(i, 1);
+    } else if (act === 'add' && i < 0) {
+      r.spots.push(id);
+    } else {
+      return;
+    }
+    await commitRoutes();
+  }
+
+  async function newRoute() {
+    const t = state.tour;
+    const base = activeRoute();
+    let n = t.routes.length + 1;
+    while (t.routes.some((r) => r.id === 'R' + n)) n++;
+    const r = { id: 'R' + n, name: `コース${t.routes.length + 1}`, spots: base.spots.slice() };
+    t.routes.push(r);
+    state.routeId = r.id;
+    await kvSet('routeId', r.id);
+    state.selectedId = null;
+    state.heroAutoId = null;
+    await commitRoutes();
+    toast('「' + base.name + '」をコピーして新しいコースを作りました。名前と順番を直してください', 4000);
+  }
+
+  async function deleteRoute() {
+    const r = explicitRoute();
+    if (!r) return;
+    if (!confirm(`コース「${r.name}」を削除しますか？（スポット自体は消えません）`)) return;
+    const t = state.tour;
+    t.routes = t.routes.filter((x) => x.id !== r.id);
+    state.routeId = t.routes.length ? t.routes[0].id : null;
+    await kvSet('routeId', state.routeId);
+    state.selectedId = null;
+    state.heroAutoId = null;
+    await commitRoutes();
+  }
+
   function openSpotEditor(id) {
     const isNew = id === null;
     let s;
@@ -1246,6 +1434,7 @@
     } else {
       const id = $('#dlgSpot').dataset.newId;
       state.tour.spots.push(Object.assign({ id, x: null, y: null }, data));
+      addToActiveRoute(id);
       editingId = id;
     }
     state.tour.spots.sort((a, b) => a.no - b.no);
@@ -1262,6 +1451,7 @@
     const s = findSpot(editingId);
     if (!confirm(`「${s.name}」を削除しますか？`)) return;
     state.tour.spots = state.tour.spots.filter((x) => x.id !== editingId);
+    state.tour.routes.forEach((r) => { r.spots = r.spots.filter((x) => x !== editingId); });
     state.visited.delete(editingId);
     if (state.selectedId === editingId) state.selectedId = null;
     stopCapture();
@@ -1301,6 +1491,7 @@
     } else {
       const id = $('#dlgSpot').dataset.newId;
       state.tour.spots.push(Object.assign({ id, x: null, y: null }, data));
+      addToActiveRoute(id);
       editingId = id;
     }
     state.tour.spots.sort((a, b) => a.no - b.no);
@@ -1449,17 +1640,19 @@
     if (m1) key = m1[1].trim();
     else if (m2) key = decodeURIComponent(m2[1]);
     const s = state.tour.spots.find((x) => x.id === key) || state.tour.spots.find((x) => String(x.no) === key);
-    if (!s) {
+    if (!s || !inRoute(s.id)) {
       const now = Date.now();
       if (now - qrLastMsg > 2000) {
         qrLastMsg = now;
-        $('#qrStatus').textContent = `このQRコードは台本に登録されていません（${text.slice(0, 40)}）`;
+        $('#qrStatus').textContent = s
+          ? `「${spotName(s)}」は、いまのコースに含まれていません`
+          : `このQRコードは台本に登録されていません（${text.slice(0, 40)}）`;
       }
       return false;
     }
     closeQr();
     selectSpot(s.id);
-    toast(`No.${s.no}「${spotName(s)}」を選びました。再生ボタンを押してください`);
+    toast(`No.${dispNo(s)}「${spotName(s)}」を選びました。再生ボタンを押してください`);
     return true;
   }
 
@@ -1472,6 +1665,14 @@
     $('#app').classList.add('hidden');
     $('#welcomeNoData').classList.toggle('hidden', has);
     $('#welcomeHasData').classList.toggle('hidden', !has);
+    const hasRoutes = has && state.tour.routes.length > 0;
+    $('#welcomeRouteBox').classList.toggle('hidden', !hasRoutes);
+    if (hasRoutes) {
+      const cur = activeRoute().id;
+      $('#selWelcomeRoute').innerHTML = state.tour.routes.map((r) =>
+        `<option value="${esc(r.id)}"${r.id === cur ? ' selected' : ''}>${esc(r.name)}（${r.spots.length} か所）</option>`
+      ).join('');
+    }
     $('#welcomeTitle').textContent = has ? state.tour.title : '見学ガイド';
     $('#welcomeText').textContent = has
       ? `${state.tour.spots.length} スポットの台本が入っています。`
@@ -1530,6 +1731,31 @@
       if (li) selectSpot(li.dataset.id);
     });
     $('#btnAddSpot').addEventListener('click', () => openSpotEditor(null));
+
+    // コース
+    $('#btnRoute').addEventListener('click', openRoutePick);
+    $('#btnRoutePickClose').addEventListener('click', () => $('#dlgRoutePick').close());
+    $('#routePickList').addEventListener('click', async (ev) => {
+      const b = ev.target.closest('[data-route]');
+      if (!b) return;
+      await setRoute(b.dataset.route, $('#chkResetVisited').checked);
+      $('#dlgRoutePick').close();
+      toast(`コース「${activeRoute().name}」に切り替えました`);
+    });
+    $('#selWelcomeRoute').addEventListener('change', (ev) => setRoute(ev.target.value, true));
+    $('#btnRouteEdit').addEventListener('click', () => { $('#dlgMenu').close(); openRouteEdit(); });
+    $('#btnRouteEditClose').addEventListener('click', () => $('#dlgRouteEdit').close());
+    $('#dlgRouteEdit').addEventListener('click', routeEditClick);
+    $('#btnRouteNew').addEventListener('click', newRoute);
+    $('#btnRouteDel').addEventListener('click', deleteRoute);
+    $('#rName').addEventListener('change', async (ev) => {
+      const r = explicitRoute();
+      if (!r) return;
+      const v = ev.target.value.trim();
+      if (!v) { ev.target.value = r.name; return; }
+      r.name = v;
+      await commitRoutes();
+    });
 
     // 地図
     $('#map').addEventListener('click', onMapClick);
@@ -1674,8 +1900,9 @@
   async function init() {
     bindEvents();
     try {
-      const [tour, visited, settings, dirty] = await Promise.all([kvGet('tour'), kvGet('visited'), kvGet('settings'), kvGet('dirty')]);
+      const [tour, visited, settings, dirty, routeId] = await Promise.all([kvGet('tour'), kvGet('visited'), kvGet('settings'), kvGet('dirty'), kvGet('routeId')]);
       if (settings) Object.assign(state.settings, settings);
+      state.routeId = typeof routeId === 'string' ? routeId : null;
       if (Array.isArray(visited)) state.visited = new Set(visited);
       state.dirty = !!dirty;
       if (tour) {

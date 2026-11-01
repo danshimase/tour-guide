@@ -31,6 +31,7 @@
       <span class="chip chip-warn hidden" id="chipDirty">未書き出しの変更あり</span>
     </div>
     <div class="actions">
+      <button class="btn hidden" id="btnRoute" type="button"></button>
       <button class="btn" id="btnQr" type="button"></button>
       <button class="btn" id="btnLang" type="button">日本語</button>
       <button class="btn" id="btnMenu" type="button"></button>
@@ -83,6 +84,9 @@
       <button class="btn big" id="btnWelcomeSample" type="button">サンプルで試す</button>
     </div>
     <div class="welcome-actions hidden" id="welcomeHasData">
+      <label class="field welcome-route hidden" id="welcomeRouteBox">見学コース
+        <select id="selWelcomeRoute"></select>
+      </label>
       <button class="btn primary huge" id="btnStart" type="button">見学を開始</button>
       <button class="btn" id="btnWelcomeImport2" type="button">別の台本を読み込む</button>
     </div>
@@ -132,6 +136,7 @@
       <h4>編集</h4>
       <div class="row-btns">
         <button class="btn" type="button" id="btnEditToggle">編集モードにする</button>
+        <button class="btn" type="button" id="btnRouteEdit">コース編集（回るスポットと順番）</button>
         <button class="btn" type="button" id="btnTourSettings">ツアー設定（タイトル・構内図・PIN）</button>
       </div>
     </div>
@@ -175,7 +180,7 @@
   <form class="dlg" id="formSpot">
     <div class="dlg-head"><h3 id="spotDlgTitle">スポット編集</h3><button class="btn small" type="button" id="btnSpotCancel">キャンセル</button></div>
     <div class="grid2">
-      <label class="field">番号<input type="number" id="fNo" min="1" step="1" required></label>
+      <label class="field">番号（コース未設定のときの順番）<input type="number" id="fNo" min="1" step="1" required></label>
       <label class="field">ID（QRコードの中身に使います）<input type="text" id="fId" readonly></label>
     </div>
     <label class="field">名前<input type="text" id="fName" required></label>
@@ -212,6 +217,39 @@
       <button class="btn primary" type="submit">保存</button>
     </div>
   </form>
+</dialog>
+
+<!-- コースの切り替え -->
+<dialog id="dlgRoutePick">
+  <div class="dlg">
+    <div class="dlg-head"><h3>見学コースを選ぶ</h3><button class="btn small" type="button" id="btnRoutePickClose">閉じる</button></div>
+    <div class="route-pick-list" id="routePickList"></div>
+    <label class="check"><input type="checkbox" id="chkResetVisited" checked> 切り替えるとき、見学済みの記録をリセットする</label>
+  </div>
+</dialog>
+
+<!-- コース編集 -->
+<dialog id="dlgRouteEdit">
+  <div class="dlg">
+    <div class="dlg-head"><h3>コース編集</h3><button class="btn small" type="button" id="btnRouteEditClose">閉じる</button></div>
+    <p class="muted small" id="routeEmpty">コースはまだありません。「新しいコース」を押すと、いまの全スポットをコピーしたコースができます。コースを作ると、画面右上にコース切り替えが出ます。</p>
+    <div class="row-btns">
+      <button class="btn" type="button" id="btnRouteNew">＋ 新しいコース（いまのコースをコピー）</button>
+      <button class="btn danger" type="button" id="btnRouteDel">このコースを削除</button>
+    </div>
+    <div id="routeBody" class="hidden">
+      <label class="field">コース名<input type="text" id="rName"></label>
+      <div class="dlg-section">
+        <h4>このコースで回るスポット（上から順）</h4>
+        <ol class="route-list" id="routeIn"></ol>
+      </div>
+      <div class="dlg-section">
+        <h4>このコースに入っていないスポット</h4>
+        <ul class="route-list" id="routeOut"></ul>
+      </div>
+      <p class="muted small">コースの内容は、いまのiPadに保存されます。他のiPadへ渡すときは「書き出す」を使ってください。</p>
+    </div>
+  </div>
 </dialog>
 
 <!-- ツアー設定 -->
