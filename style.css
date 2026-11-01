@@ -127,14 +127,22 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; }
 .spot-edit { flex: none; }
 
 /* ---------- 起動画面 ---------- */
-.welcome { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: radial-gradient(1200px 700px at 20% 10%, rgba(255, 122, 26, 0.22), transparent 60%), radial-gradient(900px 600px at 90% 90%, rgba(51, 209, 255, 0.14), transparent 60%), var(--bg); padding: 24px; }
-.welcome-inner { text-align: center; max-width: 720px; }
+.welcome { position: fixed; inset: 0; z-index: 50; display: flex; overflow-y: auto; -webkit-overflow-scrolling: touch; background: radial-gradient(1200px 700px at 20% 10%, rgba(255, 122, 26, 0.22), transparent 60%), radial-gradient(900px 600px at 90% 90%, rgba(51, 209, 255, 0.14), transparent 60%), var(--bg); padding: 24px; }
+.welcome-inner { text-align: center; max-width: 720px; margin: auto; padding: calc(16px + env(safe-area-inset-top)) 0 calc(16px + env(safe-area-inset-bottom)); }
 .welcome-mark { width: 96px; height: 96px; margin: 0 auto 20px; border-radius: 28px; background: linear-gradient(135deg, var(--accent), var(--hot)); position: relative; }
 .welcome-mark::after { content: ""; position: absolute; inset: 26px; border-radius: 50%; border: 9px solid #fff; border-bottom-color: transparent; transform: rotate(45deg); }
 .welcome h2 { font-size: 44px; margin: 8px 0 12px; line-height: 1.2; }
 .welcome p { color: var(--muted); font-size: 17px; line-height: 1.7; }
 .welcome-actions { display: flex; flex-direction: column; align-items: center; gap: 14px; margin: 28px 0 8px; }
 .welcome-foot { font-size: 13px !important; margin-top: 24px; }
+#btnStart { position: sticky; bottom: 14px; z-index: 2; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55); }
+@media (max-height: 820px) {
+  .welcome-mark { width: 64px; height: 64px; margin-bottom: 8px; border-radius: 20px; }
+  .welcome-mark::after { inset: 17px; border-width: 6px; }
+  .welcome h2 { font-size: 34px; margin: 4px 0 6px; }
+  .welcome-actions { margin: 14px 0 4px; gap: 10px; }
+  .btn.huge { min-height: 76px; font-size: 24px; }
+}
 
 /* ---------- ステージ（説明中） ---------- */
 .stage { position: fixed; inset: 0; z-index: 40; background: #05080f; display: flex; }
@@ -181,8 +189,13 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 .qr-frame { position: absolute; inset: 18% 28%; border: 4px solid var(--accent); border-radius: 18px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35); }
 
 /* ---------- コース ---------- */
-.welcome-route { width: min(420px, 90vw); text-align: left; }
-.welcome-route select { font-size: 20px; }
+.welcome-route { width: min(620px, 92vw); text-align: left; display: flex; flex-direction: column; gap: 10px; }
+.welcome-route-title { font-size: 13px; letter-spacing: 0.1em; color: var(--accent2); font-weight: 700; margin-top: 4px; }
+.welcome-route .route-opt { min-height: 54px; font-size: 18px; padding: 8px 16px; }
+.welcome-route-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.welcome-order { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; max-height: 150px; overflow-y: auto; }
+.welcome-order li { display: inline-flex; align-items: center; gap: 8px; background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 4px 14px 4px 4px; font-size: 15px; font-weight: 600; color: var(--text); }
+.welcome-order .wo-no { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; }
 .route-pick-list { display: flex; flex-direction: column; gap: 10px; }
 .route-opt { appearance: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 64px; padding: 12px 18px; border-radius: 16px; border: 1px solid var(--line2); background: var(--panel2); color: var(--text); font: inherit; font-size: 20px; font-weight: 700; cursor: pointer; text-align: left; }
 .route-opt.current { border-color: var(--accent); background: rgba(255, 122, 26, 0.14); }

@@ -84,9 +84,16 @@
       <button class="btn big" id="btnWelcomeSample" type="button">サンプルで試す</button>
     </div>
     <div class="welcome-actions hidden" id="welcomeHasData">
-      <label class="field welcome-route hidden" id="welcomeRouteBox">見学コース
-        <select id="selWelcomeRoute"></select>
-      </label>
+      <div class="welcome-route" id="welcomeRouteBox">
+        <div class="welcome-route-title">見学コースと順番</div>
+        <div class="route-pick-list" id="welcomeRouteList"></div>
+        <div class="welcome-route-actions">
+          <button class="btn" type="button" id="btnWelcomeCustom">＋ 自分で選ぶ</button>
+          <button class="btn" type="button" id="btnWelcomeReorder">このコースの順番を変える</button>
+        </div>
+        <div class="welcome-route-title">回る順番</div>
+        <ol class="welcome-order" id="welcomeOrder"></ol>
+      </div>
       <button class="btn primary huge" id="btnStart" type="button">見学を開始</button>
       <button class="btn" id="btnWelcomeImport2" type="button">別の台本を読み込む</button>
     </div>
@@ -243,7 +250,7 @@
     <div class="dlg-foot">
       <span class="muted small cust-count" id="customCount"></span>
       <button class="btn" type="button" id="btnCustomSave">コースとして保存</button>
-      <button class="btn primary" type="button" id="btnCustomStart">この順で開始</button>
+      <button class="btn primary" type="button" id="btnCustomStart">この順にする</button>
     </div>
   </div>
 </dialog>

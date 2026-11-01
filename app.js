@@ -1225,14 +1225,28 @@
     state.selectedId = null;
     state.heroAutoId = null;
     renderAll();
+    if (!$('#welcome').classList.contains('hidden')) showWelcome();
   }
 
-  function openRoutePick() {
+  // コース選択のボタン群（起動画面と、見学中のコース選択で共通）
+  function routeButtonsHtml() {
     const cur = activeRoute();
-    $('#routePickList').innerHTML = routeChoices().map((r) =>
+    return routeChoices().map((r) =>
       `<button class="route-opt${r.id === cur.id ? ' current' : ''}" type="button" data-route="${esc(r.id)}">` +
       `<span class="route-opt-name">${esc(r.name)}</span><span class="route-opt-count">${r.n} か所</span></button>`
     ).join('');
+  }
+
+  // 起動画面：コース一覧と、選んだコースの回る順番
+  function renderWelcomeRoute() {
+    $('#welcomeRouteList').innerHTML = routeButtonsHtml();
+    $('#welcomeOrder').innerHTML = routeSpots().map((s, i) =>
+      `<li><span class="wo-no">${i + 1}</span>${esc(spotName(s))}</li>`
+    ).join('');
+  }
+
+  function openRoutePick() {
+    $('#routePickList').innerHTML = routeButtonsHtml();
     $('#chkResetVisited').checked = true;
     $('#dlgRoutePick').showModal();
   }
@@ -1340,8 +1354,11 @@
   // ---------------------------------------------------------
   let customDraft = [];
 
-  function openCustom() {
-    customDraft = state.customRoute.filter((id) => !!findSpot(id));
+  // fromCurrent=true：いま選んでいるコースの並びを土台にする／false：前回「自分で選んだ」内容から始める
+  function openCustom(fromCurrent) {
+    customDraft = fromCurrent
+      ? activeRoute().spots.slice()
+      : state.customRoute.filter((id) => !!findSpot(id));
     renderCustom();
     $('#dlgRoutePick').close();
     $('#dlgCustom').showModal();
@@ -1390,9 +1407,12 @@
     }
     state.customRoute = customDraft.slice();
     await kvSet('customRoute', state.customRoute);
+    const onWelcome = !$('#welcome').classList.contains('hidden');
     await setRoute(CUSTOM_ID, true);
     $('#dlgCustom').close();
-    toast(`自分で選んだコース（${state.customRoute.length} か所）で始めます`);
+    toast(onWelcome
+      ? `順番を決めました（${state.customRoute.length} か所）。「見学を開始」を押してください`
+      : `自分で選んだコース（${state.customRoute.length} か所）に切り替えました`);
   }
 
   async function saveCustomAsRoute() {
@@ -1785,14 +1805,7 @@
     $('#app').classList.add('hidden');
     $('#welcomeNoData').classList.toggle('hidden', has);
     $('#welcomeHasData').classList.toggle('hidden', !has);
-    const choices = has ? routeChoices() : [];
-    $('#welcomeRouteBox').classList.toggle('hidden', choices.length < 2);
-    if (choices.length >= 2) {
-      const cur = activeRoute().id;
-      $('#selWelcomeRoute').innerHTML = choices.map((r) =>
-        `<option value="${esc(r.id)}"${r.id === cur ? ' selected' : ''}>${esc(r.name)}（${r.n} か所）</option>`
-      ).join('');
-    }
+    if (has) renderWelcomeRoute();
     $('#welcomeTitle').textContent = has ? state.tour.title : '見学ガイド';
     $('#welcomeText').textContent = has
       ? `${state.tour.spots.length} スポットの台本が入っています。`
@@ -1855,7 +1868,13 @@
     // コース
     $('#btnRoute').addEventListener('click', openRoutePick);
     $('#btnRoutePickClose').addEventListener('click', () => $('#dlgRoutePick').close());
-    $('#btnCustomOpen').addEventListener('click', openCustom);
+    $('#btnCustomOpen').addEventListener('click', () => openCustom(false));
+    $('#btnWelcomeCustom').addEventListener('click', () => openCustom(false));
+    $('#btnWelcomeReorder').addEventListener('click', () => openCustom(true));
+    $('#welcomeRouteList').addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-route]');
+      if (b) setRoute(b.dataset.route, true);
+    });
     $('#btnCustomClose').addEventListener('click', () => $('#dlgCustom').close());
     $('#btnCustomFromCur').addEventListener('click', () => { customDraft = activeRoute().spots.slice(); renderCustom(); });
     $('#btnCustomClear').addEventListener('click', () => { customDraft = []; renderCustom(); });
@@ -1869,7 +1888,6 @@
       $('#dlgRoutePick').close();
       toast(`コース「${activeRoute().name}」に切り替えました`);
     });
-    $('#selWelcomeRoute').addEventListener('change', (ev) => setRoute(ev.target.value, true));
     $('#btnRouteEdit').addEventListener('click', () => { $('#dlgMenu').close(); openRouteEdit(); });
     $('#btnRouteEditClose').addEventListener('click', () => $('#dlgRouteEdit').close());
     $('#dlgRouteEdit').addEventListener('click', routeEditClick);
