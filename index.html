@@ -6,15 +6,15 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="見学ガイド">
-<meta name="theme-color" content="#0a111e">
+<meta name="theme-color" content="#f2f2f7">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
 <title>見学ガイド</title>
 </head>
-<body data-phase="prep">
+<body data-phase="prep" data-theme="light">
 <div id="app" class="hidden">
   <header class="topbar">
     <div class="brand">
@@ -98,6 +98,7 @@
           <div class="wl-badges"><span class="phase-badge">準備中</span><span class="chip" id="welcomeText"></span></div>
           <h1 id="welcomeTitle">見学ガイド</h1>
         </div>
+        <div class="seg theme-seg" role="group" aria-label="表示の明るさ"><button type="button" data-theme="light">ライト</button><button type="button" data-theme="dark">ダーク</button></div>
         <button class="link-btn" id="btnWelcomeImport2" type="button">台本ファイルを読み込み直す</button>
       </header>
 
@@ -176,6 +177,10 @@
         <button class="btn" type="button" id="btnRouteEdit">コース編集（回るスポットと順番）</button>
         <button class="btn" type="button" id="btnTourSettings">ツアー設定（タイトル・構内図・PIN）</button>
       </div>
+    </div>
+    <div class="dlg-section">
+      <h4>表示</h4>
+      <div class="seg theme-seg" role="group" aria-label="表示の明るさ"><button type="button" data-theme="light">ライト</button><button type="button" data-theme="dark">ダーク</button></div>
     </div>
     <div class="dlg-section">
       <h4>読み上げ</h4>

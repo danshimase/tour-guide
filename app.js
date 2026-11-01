@@ -32,7 +32,7 @@
     dirty: false,
     placingId: null,
     projector: null,
-    settings: { rate: 1.0, voiceJa: '', voiceEn: '', accLimit: 50, leftView: 'flow' },
+    settings: { rate: 1.0, voiceJa: '', voiceEn: '', accLimit: 50, leftView: 'flow', theme: 'light' },
     speaking: null,
     wakeLock: null,
     lastRender: 0,
@@ -589,6 +589,15 @@
     const dotR = Math.max(9, W / 110);
     g.appendChild(svgEl('circle', { class: 'pos-acc', cx: xy.x, cy: xy.y, r: accR, 'stroke-width': 2 }));
     g.appendChild(svgEl('circle', { class: 'pos-dot', cx: xy.x, cy: xy.y, r: dotR, 'stroke-width': dotR / 3 }));
+  }
+
+  // ライト／ダークの切り替え（初期はライト）
+  function applyTheme() {
+    const t = state.settings.theme === 'dark' ? 'dark' : 'light';
+    document.body.dataset.theme = t;
+    document.querySelectorAll('.theme-seg button').forEach((b) => b.classList.toggle('on', b.dataset.theme === t));
+    const m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.setAttribute('content', t === 'dark' ? '#0a111e' : '#f2f2f7');
   }
 
   // ---------------------------------------------------------
@@ -2094,6 +2103,13 @@
 
     // 地図
     $('#map').addEventListener('click', onMapClick);
+    document.addEventListener('click', (ev) => {
+      const b = ev.target.closest('.theme-seg button');
+      if (!b) return;
+      state.settings.theme = b.dataset.theme;
+      saveSettings();
+      applyTheme();
+    });
     $('#viewToggle').addEventListener('click', (ev) => {
       const b = ev.target.closest('[data-view]');
       if (!b) return;
@@ -2261,6 +2277,7 @@
     } catch (e) {
       toast('端末内のデータを読み込めませんでした', 4000);
     }
+    applyTheme();
     $('#inpRate').value = String(state.settings.rate);
     $('#rateLabel').textContent = Number(state.settings.rate).toFixed(2);
     $('#selAcc').value = String(state.settings.accLimit);
