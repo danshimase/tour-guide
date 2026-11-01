@@ -629,7 +629,7 @@
 
   function fillVoiceSelect(sel, prefix, current) {
     const list = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith(prefix));
-    sel.innerHTML = '<option value="">自動</option>' + list.map((v) =>
+    sel.innerHTML = `<option value="">${prefix === 'ja' ? '自動（Kyoko優先）' : '自動'}</option>` + list.map((v) =>
       `<option value="${esc(v.voiceURI)}"${v.voiceURI === current ? ' selected' : ''}>${esc(v.name)}（${esc(v.lang)}）</option>`
     ).join('');
   }
@@ -641,6 +641,10 @@
       if (v) return v;
     }
     const list = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith(lang));
+    if (lang === 'ja') {
+      const kyoko = list.find((v) => /^kyoko/i.test(v.name));
+      if (kyoko) return kyoko;
+    }
     return list.find((v) => v.localService) || list[0] || null;
   }
 
