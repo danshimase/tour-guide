@@ -1,0 +1,15 @@
+{
+  "name": "工場見学 音声ガイド",
+  "short_name": "見学ガイド",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a111e",
+  "theme_color": "#0a111e",
+  "lang": "ja",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

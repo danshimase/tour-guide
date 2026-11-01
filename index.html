@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="見学ガイド">
+<meta name="theme-color" content="#0a111e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+<title>見学ガイド</title>
+</head>
+<body>
+<div id="app" class="hidden">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <div class="brand-sub">FACTORY TOUR GUIDE</div>
+        <h1 id="tourTitle">見学ガイド</h1>
+      </div>
+    </div>
+    <div class="chips">
+      <span class="chip" id="chipGps"><span class="dot"></span><span id="gpsText">位置情報 停止中</span></span>
+      <span class="chip" id="chipProgress">0 / 0</span>
+      <span class="chip chip-edit hidden" id="chipEdit">編集モード</span>
+      <span class="chip chip-warn hidden" id="chipDirty">未書き出しの変更あり</span>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btnQr" type="button"></button>
+      <button class="btn" id="btnLang" type="button">日本語</button>
+      <button class="btn" id="btnMenu" type="button"></button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="map-panel">
+      <svg id="map" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" viewBox="0 0 1000 700">
+        <g id="mapBg"></g>
+        <g id="mapRoute"></g>
+        <g id="mapPos"></g>
+        <g id="mapPins"></g>
+      </svg>
+      <div class="map-note" id="mapNote"></div>
+      <div class="map-hint hidden" id="mapHint">
+        <span id="mapHintText">地図をタップして位置を指定してください</span>
+        <button class="btn small" id="btnCancelPlace" type="button">キャンセル</button>
+      </div>
+    </section>
+
+    <section class="side-panel">
+      <div class="hero" id="hero"></div>
+      <div class="list-head">
+        <span id="listTitle">近い順</span>
+        <div class="list-head-actions">
+          <button class="btn small hidden" id="btnAuto" type="button">近くを自動表示に戻す</button>
+          <button class="btn small hidden" id="btnAddSpot" type="button">＋ スポット追加</button>
+        </div>
+      </div>
+      <ol class="spot-list" id="spotList"></ol>
+    </section>
+  </main>
+</div>
+
+<!-- 起動画面 -->
+<div class="welcome" id="welcome">
+  <div class="welcome-inner">
+    <div class="welcome-mark" aria-hidden="true"></div>
+    <div class="brand-sub">FACTORY TOUR GUIDE</div>
+    <h2 id="welcomeTitle">見学ガイド</h2>
+    <p id="welcomeText">台本ファイルを読み込んでください。</p>
+    <div class="welcome-actions" id="welcomeNoData">
+      <button class="btn primary big" id="btnWelcomeImport" type="button">台本ファイルを読み込む</button>
+      <button class="btn big" id="btnWelcomeSample" type="button">サンプルで試す</button>
+    </div>
+    <div class="welcome-actions hidden" id="welcomeHasData">
+      <button class="btn primary huge" id="btnStart" type="button">見学を開始</button>
+      <button class="btn" id="btnWelcomeImport2" type="button">別の台本を読み込む</button>
+    </div>
+    <p class="welcome-foot">開始すると位置情報と音声を使います。画面は自動で消灯しません（対応端末のみ）。</p>
+  </div>
+</div>
+
+<!-- 説明中のステージ -->
+<div class="stage hidden" id="stage">
+  <div class="stage-bg" id="stageBg"></div>
+  <div class="stage-inner">
+    <div class="stage-head">
+      <div class="stage-no" id="stageNo">1</div>
+      <div>
+        <div class="stage-sub" id="stageSub">NOW EXPLAINING</div>
+        <h2 class="stage-title" id="stageTitle"></h2>
+      </div>
+    </div>
+    <div class="stage-body" id="stageBody"></div>
+    <div class="stage-progress"><div class="stage-progress-bar" id="stageBar"></div></div>
+    <div class="stage-controls" id="stageControls">
+      <button class="btn big" id="btnPrev" type="button"></button>
+      <button class="btn primary big wide" id="btnPause" type="button"></button>
+      <button class="btn big" id="btnNext" type="button"></button>
+      <button class="btn big" id="btnStop" type="button"></button>
+    </div>
+    <div class="stage-controls hidden" id="stageDone">
+      <button class="btn big" id="btnReplay" type="button">もう一度</button>
+      <button class="btn primary big wide" id="btnDoneClose" type="button">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- メニュー -->
+<dialog id="dlgMenu">
+  <form method="dialog" class="dlg">
+    <div class="dlg-head"><h3>メニュー</h3><button class="btn small" value="close">閉じる</button></div>
+    <div class="dlg-section">
+      <h4>台本ファイル</h4>
+      <div class="row-btns">
+        <button class="btn" type="button" id="btnImport">読み込む</button>
+        <button class="btn" type="button" id="btnExport">書き出す</button>
+        <button class="btn" type="button" id="btnLoadSample">サンプルを読み込む</button>
+      </div>
+    </div>
+    <div class="dlg-section">
+      <h4>編集</h4>
+      <div class="row-btns">
+        <button class="btn" type="button" id="btnEditToggle">編集モードにする</button>
+        <button class="btn" type="button" id="btnTourSettings">ツアー設定（タイトル・構内図・PIN）</button>
+      </div>
+    </div>
+    <div class="dlg-section">
+      <h4>読み上げ</h4>
+      <label class="field">話す速さ <span id="rateLabel">1.0</span>
+        <input type="range" id="inpRate" min="0.6" max="1.4" step="0.05" value="1">
+      </label>
+      <label class="field">日本語の声
+        <select id="selVoiceJa"></select>
+      </label>
+      <label class="field">英語の声
+        <select id="selVoiceEn"></select>
+      </label>
+      <button class="btn small" type="button" id="btnVoiceTest">試しに話す</button>
+    </div>
+    <div class="dlg-section">
+      <h4>位置情報</h4>
+      <label class="field">この精度より悪いときは距離順にしない
+        <select id="selAcc">
+          <option value="20">±20 m</option>
+          <option value="30">±30 m</option>
+          <option value="50">±50 m</option>
+          <option value="80">±80 m</option>
+          <option value="150">±150 m</option>
+        </select>
+      </label>
+    </div>
+    <div class="dlg-section">
+      <h4>その他</h4>
+      <div class="row-btns">
+        <button class="btn" type="button" id="btnResetVisited">見学済みをリセット</button>
+      </div>
+      <p class="muted small">QR読み取り: jsQR 1.4.0（Apache License 2.0）を同梱しています。</p>
+    </div>
+  </form>
+</dialog>
+
+<!-- スポット編集 -->
+<dialog id="dlgSpot">
+  <form class="dlg" id="formSpot">
+    <div class="dlg-head"><h3 id="spotDlgTitle">スポット編集</h3><button class="btn small" type="button" id="btnSpotCancel">キャンセル</button></div>
+    <div class="grid2">
+      <label class="field">番号<input type="number" id="fNo" min="1" step="1" required></label>
+      <label class="field">ID（QRコードの中身に使います）<input type="text" id="fId" readonly></label>
+    </div>
+    <label class="field">名前<input type="text" id="fName" required></label>
+    <label class="field">説明文（日本語）<textarea id="fText" rows="6"></textarea></label>
+    <label class="field">名前（英語・任意）<input type="text" id="fNameEn"></label>
+    <label class="field">説明文（英語・任意）<textarea id="fTextEn" rows="4"></textarea></label>
+    <div class="dlg-section">
+      <h4>位置</h4>
+      <div class="grid2">
+        <label class="field">緯度<input type="text" id="fLat" inputmode="decimal"></label>
+        <label class="field">経度<input type="text" id="fLng" inputmode="decimal"></label>
+      </div>
+      <div class="row-btns">
+        <button class="btn" type="button" id="btnCapture">現在地で登録（10秒平均）</button>
+        <button class="btn" type="button" id="btnPlaceOnMap">地図上で位置を指定</button>
+      </div>
+      <p class="muted small" id="captureStatus"></p>
+      <p class="muted small" id="fXY"></p>
+    </div>
+    <div class="dlg-section">
+      <h4>写真（任意・説明中の背景に表示）</h4>
+      <div class="photo-row">
+        <div class="photo-preview" id="photoPreview"></div>
+        <div class="row-btns">
+          <button class="btn" type="button" id="btnPhoto">写真を選ぶ</button>
+          <button class="btn" type="button" id="btnPhotoClear">写真を外す</button>
+        </div>
+      </div>
+    </div>
+    <p class="muted small" id="qrHint"></p>
+    <div class="dlg-foot">
+      <button class="btn danger" type="button" id="btnSpotDelete">削除</button>
+      <button class="btn" type="button" id="btnSpotPreview">試しに読む</button>
+      <button class="btn primary" type="submit">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ツアー設定 -->
+<dialog id="dlgTour">
+  <form class="dlg" id="formTour">
+    <div class="dlg-head"><h3>ツアー設定</h3><button class="btn small" type="button" id="btnTourCancel">キャンセル</button></div>
+    <label class="field">ツアー名<input type="text" id="tTitle" required></label>
+    <div class="dlg-section">
+      <h4>構内図</h4>
+      <p class="muted small">構内図の画像を背景にします。スポットを3か所以上「緯度経度」と「地図上の位置」の両方で登録すると、現在地が地図に表示されます。</p>
+      <div class="row-btns">
+        <button class="btn" type="button" id="btnMapPick">画像を選ぶ</button>
+        <button class="btn" type="button" id="btnMapClear">構内図を外す</button>
+      </div>
+      <p class="muted small" id="mapStatus"></p>
+    </div>
+    <div class="dlg-section">
+      <h4>編集用PIN</h4>
+      <label class="field">新しいPIN（変更しない場合は空欄）<input type="password" id="tPin" inputmode="numeric" autocomplete="new-password"></label>
+    </div>
+    <div class="dlg-foot">
+      <button class="btn primary" type="submit">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 書き出し -->
+<dialog id="dlgExport">
+  <form class="dlg" id="formExport">
+    <div class="dlg-head"><h3>台本を書き出す</h3><button class="btn small" type="button" id="btnExportCancel">閉じる</button></div>
+    <p class="muted">パスフレーズを入れると暗号化したファイルになります。読み込むときに同じパスフレーズが必要です。</p>
+    <label class="field">パスフレーズ（任意）<input type="password" id="ePass" autocomplete="new-password"></label>
+    <label class="field">パスフレーズ（確認）<input type="password" id="ePass2" autocomplete="new-password"></label>
+    <div class="dlg-foot">
+      <button class="btn primary" type="submit" id="btnExportMake">ファイルを作成</button>
+    </div>
+    <div class="export-ready hidden" id="exportReady">
+      <p id="exportInfo"></p>
+      <div class="row-btns">
+        <button class="btn primary" type="button" id="btnShare">共有・ファイルに保存</button>
+        <a class="btn" id="lnkDownload" download="tour.json">ダウンロード</a>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<!-- 入力（パスフレーズ・PIN） -->
+<dialog id="dlgPrompt">
+  <form class="dlg narrow" id="formPrompt">
+    <div class="dlg-head"><h3 id="promptTitle">入力</h3></div>
+    <p class="muted" id="promptText"></p>
+    <label class="field"><input type="password" id="promptInput" autocomplete="off"></label>
+    <p class="error small" id="promptError"></p>
+    <div class="dlg-foot">
+      <button class="btn" type="button" id="btnPromptCancel">キャンセル</button>
+      <button class="btn primary" type="submit">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- QR読み取り -->
+<dialog id="dlgQr">
+  <div class="dlg">
+    <div class="dlg-head"><h3>QRコードを読み取る</h3><button class="btn small" type="button" id="btnQrClose">閉じる</button></div>
+    <div class="qr-view">
+      <video id="qrVideo" playsinline muted></video>
+      <div class="qr-frame" aria-hidden="true"></div>
+    </div>
+    <p class="muted" id="qrStatus">カメラを起動しています…</p>
+  </div>
+</dialog>
+
+<input type="file" id="fileImport" hidden>
+<input type="file" id="fileMap" accept="image/*" hidden>
+<input type="file" id="filePhoto" accept="image/*" hidden>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="vendor/jsQR.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "title": "サンプル工場 見学ツアー",
+  "map": {
+    "image": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNjAwIiBoZWlnaHQ9IjEwMDAiIHZpZXdCb3g9IjAgMCAxNjAwIDEwMDAiPgo8cmVjdCB3aWR0aD0iMTYwMCIgaGVpZ2h0PSIxMDAwIiBmaWxsPSIjMGYxYTJiIi8+CjxnIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFkMmM0NCIgc3Ryb2tlLXdpZHRoPSIyIj4KPGxpbmUgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEwMDAiLz48bGluZSB4MT0iODAiIHkxPSIwIiB4Mj0iODAiIHkyPSIxMDAwIi8+PGxpbmUgeDE9IjE2MCIgeTE9IjAiIHgyPSIxNjAiIHkyPSIxMDAwIi8+PGxpbmUgeDE9IjI0MCIgeTE9IjAiIHgyPSIyNDAiIHkyPSIxMDAwIi8+PGxpbmUgeDE9IjMyMCIgeTE9IjAiIHgyPSIzMjAiIHkyPSIxMDAwIi8+PGxpbmUgeDE9IjQwMCIgeTE9IjAiIHgyPSI0MDAiIHkyPSIxMDAwIi8+PGxpbmUgeDE9IjQ4MCIgeTE9IjAiIHgyPSI0ODAiIHkyPSIxMDAwIi8+PGxpbmUgeDE9IjU2MCIgeTE9IjAiIHgyPSI1NjAiIHkyPSIxMDAwIi8+PGxpbmUgeDE9IjY0MCIgeTE9IjAiIHgyPSI2NDAiIHkyPSIxMDAwIi8+PGxpbmUgeDE9IjcyMCIgeTE9IjAiIHgyPSI3MjAiIHkyPSIxMDAwIi8+PGxpbmUgeDE9IjgwMCIgeTE9IjAiIHgyPSI4MDAiIHkyPSIxMDAwIi8+PGxpbmUgeDE9Ijg4MCIgeTE9IjAiIHgyPSI4ODAiIHkyPSIxMDAwIi8+PGxpbmUgeDE9Ijk2MCIgeTE9IjAiIHgyPSI5NjAiIHkyPSIxMDAwIi8+PGxpbmUgeDE9IjEwNDAiIHkxPSIwIiB4Mj0iMTA0MCIgeTI9IjEwMDAiLz48bGluZSB4MT0iMTEyMCIgeTE9IjAiIHgyPSIxMTIwIiB5Mj0iMTAwMCIvPjxsaW5lIHgxPSIxMjAwIiB5MT0iMCIgeDI9IjEyMDAiIHkyPSIxMDAwIi8+PGxpbmUgeDE9IjEyODAiIHkxPSIwIiB4Mj0iMTI4MCIgeTI9IjEwMDAiLz48bGluZSB4MT0iMTM2MCIgeTE9IjAiIHgyPSIxMzYwIiB5Mj0iMTAwMCIvPjxsaW5lIHgxPSIxNDQwIiB5MT0iMCIgeDI9IjE0NDAiIHkyPSIxMDAwIi8+PGxpbmUgeDE9IjE1MjAiIHkxPSIwIiB4Mj0iMTUyMCIgeTI9IjEwMDAiLz48bGluZSB4MT0iMTYwMCIgeTE9IjAiIHgyPSIxNjAwIiB5Mj0iMTAwMCIvPgo8bGluZSB4MT0iMCIgeTE9IjAiIHgyPSIxNjAwIiB5Mj0iMCIvPjxsaW5lIHgxPSIwIiB5MT0iODAiIHgyPSIxNjAwIiB5Mj0iODAiLz48bGluZSB4MT0iMCIgeTE9IjE2MCIgeDI9IjE2MDAiIHkyPSIxNjAiLz48bGluZSB4MT0iMCIgeTE9IjI0MCIgeDI9IjE2MDAiIHkyPSIyNDAiLz48bGluZSB4MT0iMCIgeTE9IjMyMCIgeDI9IjE2MDAiIHkyPSIzMjAiLz48bGluZSB4MT0iMCIgeTE9IjQwMCIgeDI9IjE2MDAiIHkyPSI0MDAiLz48bGluZSB4MT0iMCIgeTE9IjQ4MCIgeDI9IjE2MDAiIHkyPSI0ODAiLz48bGluZSB4MT0iMCIgeTE9IjU2MCIgeDI9IjE2MDAiIHkyPSI1NjAiLz48bGluZSB4MT0iMCIgeTE9IjY0MCIgeDI9IjE2MDAiIHkyPSI2NDAiLz48bGluZSB4MT0iMCIgeTE9IjcyMCIgeDI9IjE2MDAiIHkyPSI3MjAiLz48bGluZSB4MT0iMCIgeTE9IjgwMCIgeDI9IjE2MDAiIHkyPSI4MDAiLz48bGluZSB4MT0iMCIgeTE9Ijg4MCIgeDI9IjE2MDAiIHkyPSI4ODAiLz48bGluZSB4MT0iMCIgeTE9Ijk2MCIgeDI9IjE2MDAiIHkyPSI5NjAiLz4KPC9nPgo8cmVjdCB4PSIwIiB5PSI0NTUiIHdpZHRoPSIxNjAwIiBoZWlnaHQ9IjkwIiBmaWxsPSIjMTYyNDNhIi8+CjxyZWN0IHg9Ijc0NSIgeT0iMCIgd2lkdGg9IjkwIiBoZWlnaHQ9IjEwMDAiIGZpbGw9IiMxNjI0M2EiLz4KPGcgZmlsbD0iIzFiMmQ0OCIgc3Ryb2tlPSIjM2E1NDc4IiBzdHJva2Utd2lkdGg9IjQiPgo8cmVjdCB4PSI4MCIgeT0iODAiIHdpZHRoPSI2MDAiIGhlaWdodD0iMzIwIiByeD0iMTAiLz4KPHJlY3QgeD0iOTAwIiB5PSI4MCIgd2lkdGg9IjYyMCIgaGVpZ2h0PSIzMjAiIHJ4PSIxMCIvPgo8cmVjdCB4PSI4MCIgeT0iNjAwIiB3aWR0aD0iNjAwIiBoZWlnaHQ9IjMyMCIgcng9IjEwIi8+CjxyZWN0IHg9IjkwMCIgeT0iNjAwIiB3aWR0aD0iMzgwIiBoZWlnaHQ9IjMyMCIgcng9IjEwIi8+CjxyZWN0IHg9IjEzMjAiIHk9IjYwMCIgd2lkdGg9IjIwMCIgaGVpZ2h0PSIzMjAiIHJ4PSIxMCIvPgo8L2c+CjxnIGZpbGw9IiM2Zjg4YWQiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjM0IiBmb250LXdlaWdodD0iNzAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4KPHRleHQgeD0iMzgwIiB5PSIxNDAiPkHmo58g57WE56uLPC90ZXh0Pgo8dGV4dCB4PSIxMjEwIiB5PSIxNDAiPkLmo58g44OX44Os44K5PC90ZXh0Pgo8dGV4dCB4PSIzODAiIHk9IjY2MCI+Q+ajnyDloZfoo4Xjg7vmpJzmn7s8L3RleHQ+Cjx0ZXh0IHg9IjEwOTAiIHk9IjY2MCI+ROajnyDlh7rojbc8L3RleHQ+Cjx0ZXh0IHg9IjE0MjAiIHk9IjY2MCI+5YCJ5bqrPC90ZXh0Pgo8dGV4dCB4PSIyMzAiIHk9IjUxMCIgZm9udC1zaXplPSIyNiI+5Y+X5LuY44O76KaL5a2m6ICF5YWl5Y+jPC90ZXh0Pgo8L2c+Cjwvc3ZnPg==",
+    "width": 1600,
+    "height": 1000
+  },
+  "spots": [
+    {
+      "id": "S01",
+      "no": 1,
+      "name": "受付・安全説明",
+      "nameEn": "Reception and safety briefing",
+      "text": "ようこそ、サンプル工場へ。本日の見学ルートは約四十分です。構内では黄色い線の内側を歩き、フォークリフトの通行にご注意ください。写真撮影は、許可されたエリアのみでお願いします。",
+      "textEn": "Welcome to the sample factory. Today's tour takes about forty minutes. Please walk inside the yellow lines and watch out for forklifts. Photos are allowed only in designated areas.",
+      "lat": 35.441019,
+      "lng": 139.638506,
+      "x": 230,
+      "y": 545,
+      "image": ""
+    },
+    {
+      "id": "S02",
+      "no": 2,
+      "name": "組立ライン",
+      "nameEn": "Assembly line",
+      "text": "こちらは主力製品の組立ラインです。一本のラインで、約六十秒に一台のペースで製品が完成します。作業者の手元にあるランプは、異常があったときにラインを止めるための仕組みです。",
+      "textEn": "This is the main assembly line. One finished product comes off the line about every sixty seconds. The lamps at each station let workers stop the line if they notice a problem.",
+      "lat": 35.44146,
+      "lng": 139.638836,
+      "x": 380,
+      "y": 300,
+      "image": ""
+    },
+    {
+      "id": "S03",
+      "no": 3,
+      "name": "大型プレス機",
+      "nameEn": "Large press",
+      "text": "こちらはプレス棟です。大型のプレス機で、一枚の鋼板から部品の形を一度に打ち抜きます。金型の交換は、以前は一時間以上かかっていましたが、改善活動により十分程度まで短縮しました。",
+      "textEn": "This is the press building. A large press stamps parts out of a single steel sheet in one stroke. Die changes used to take over an hour, but continuous improvement has cut that to about ten minutes.",
+      "lat": 35.44146,
+      "lng": 139.64042,
+      "x": 1100,
+      "y": 300,
+      "image": ""
+    },
+    {
+      "id": "S04",
+      "no": 4,
+      "name": "塗装ロボット",
+      "nameEn": "Painting robots",
+      "text": "こちらでは、ロボットが製品を塗装しています。塗料の無駄を減らすため、静電気の力で塗料を製品に引き寄せる方式を採用しています。",
+      "textEn": "Here, robots paint our products. We use electrostatic painting, which draws the paint onto the product and reduces waste.",
+      "lat": 35.440524,
+      "lng": 139.638836,
+      "x": 380,
+      "y": 820,
+      "image": ""
+    },
+    {
+      "id": "S05",
+      "no": 5,
+      "name": "自動搬送と出荷",
+      "nameEn": "Automated transport and shipping",
+      "text": "完成した製品は、無人搬送車がこの出荷場まで運びます。出荷の情報はすべてデジタルで管理され、どの製品がいつどこへ向かうかを、リアルタイムで確認できます。",
+      "textEn": "Finished products are carried here by automated guided vehicles. All shipping information is managed digitally, so we can see in real time where each product is headed.",
+      "lat": 35.440524,
+      "lng": 139.640398,
+      "x": 1090,
+      "y": 820,
+      "image": ""
+    },
+    {
+      "id": "S06",
+      "no": 6,
+      "name": "見学のまとめ",
+      "nameEn": "Wrap-up",
+      "text": "本日の見学は以上です。ご質問があれば、お気軽に案内係へお声がけください。ご来場ありがとうございました。",
+      "textEn": "That concludes today's tour. Please feel free to ask our guides any questions. Thank you for visiting.",
+      "lat": 35.441019,
+      "lng": 139.641124,
+      "x": 1420,
+      "y": 545,
+      "image": ""
+    }
+  ]
+}
