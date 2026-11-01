@@ -409,6 +409,18 @@
       }
     }
     $('#gpsText').textContent = text;
+
+    const box = $('#posReadout');
+    if (state.pos) {
+      const p = state.pos;
+      const ageSec = Math.max(0, Math.round((Date.now() - p.ts) / 1000));
+      $('#posLatLng').textContent = `${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}`;
+      $('#posSub').textContent = `精度 ±${Math.round(p.acc)} m ・ ${ageSec} 秒前`;
+      box.classList.toggle('poor', p.acc > state.settings.accLimit);
+      box.classList.remove('hidden');
+    } else {
+      box.classList.add('hidden');
+    }
   }
 
   function svgEl(tag, attrs) {
