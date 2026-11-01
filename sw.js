@@ -1,7 +1,7 @@
 'use strict';
 
 // 本体を更新したら、この番号を上げてください（iPad側のキャッシュが入れ替わります）
-const CACHE = 'tour-guide-v10';
+const CACHE = 'tour-guide-v12';
 
 const ASSETS = [
   './',

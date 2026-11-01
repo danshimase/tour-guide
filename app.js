@@ -27,11 +27,12 @@
     customRoute: [],
     heroAutoId: null,
     heroId: null,
+    heroReason: null,
     editMode: false,
     dirty: false,
     placingId: null,
     projector: null,
-    settings: { rate: 1.0, voiceJa: '', voiceEn: '', accLimit: 50 },
+    settings: { rate: 1.0, voiceJa: '', voiceEn: '', accLimit: 50, leftView: 'flow' },
     speaking: null,
     wakeLock: null,
     lastRender: 0,
@@ -590,12 +591,128 @@
     g.appendChild(svgEl('circle', { class: 'pos-dot', cx: xy.x, cy: xy.y, r: dotR, 'stroke-width': dotR / 3 }));
   }
 
+  // ---------------------------------------------------------
+  // 左パネル：縦のフローチャート（回る順番）
+  // ---------------------------------------------------------
+  let lastFlowHtml = '';
+  let lastFlowHero = null;
+
+  function renderFlow() {
+    if (!state.tour) return;
+    const panel = document.querySelector('.map-panel');
+    // 地図上で位置を指定している間は、地図を出す
+    const view = state.placingId ? 'map' : state.settings.leftView;
+    panel.dataset.view = view;
+    document.querySelectorAll('#viewToggle button').forEach((b) => b.classList.toggle('on', b.dataset.view === view));
+    if (view !== 'flow') { lastFlowHtml = ''; lastFlowHero = null; return; }
+
+    const rs = routeSpots();
+    const p = state.pos;
+    const good = !!p && p.acc <= state.settings.accLimit;
+    const dist = (s) => (p && s.lat !== null && s.lng !== null ? haversine(p.lat, p.lng, s.lat, s.lng) : null);
+    const done = rs.filter((s) => state.visited.has(s.id)).length;
+    const pct = rs.length ? Math.round((done / rs.length) * 100) : 0;
+    const here = p ? `<div class="flow-here">現在地 ${p.lat.toFixed(6)}, ${p.lng.toFixed(6)} ・ ±${Math.round(p.acc)} m</div>` : '';
+
+    const nowIdx = rs.findIndex((s) => s.id === state.heroId);
+
+    // 現在地：いちばん近いスポットの近く（20 m 未満）ならそのスポット、離れていれば前後どちらかの区間に印を出す
+    let hereIdx = -1;
+    let marker = null;
+    if (good) {
+      let k = -1;
+      let dk = Infinity;
+      rs.forEach((s, i) => {
+        const d = dist(s);
+        if (d !== null && d < dk) { dk = d; k = i; }
+      });
+      if (k >= 0) {
+        if (dk < 20) {
+          hereIdx = k;
+        } else {
+          const dPrev = k > 0 ? dist(rs[k - 1]) : null;
+          const dNext = k < rs.length - 1 ? dist(rs[k + 1]) : null;
+          let leg = null;
+          if (dPrev !== null && (dNext === null || dPrev <= dNext)) leg = k - 1;
+          else if (dNext !== null) leg = k;
+          if (leg !== null && leg >= 0 && leg < rs.length - 1) {
+            marker = { leg, text: `現在地 ・ ${spotName(rs[k])}まで ${formatDist(dk)}` };
+          }
+        }
+      }
+    }
+
+    const items = rs.map((s, i) => {
+      const vis = state.visited.has(s.id);
+      const now = i === nowIdx;
+      const cls = ['flow-item'];
+      if (vis) cls.push('visited');
+      if (now) cls.push('now');
+      if (i === hereIdx) cls.push('here');
+      if (i === rs.length - 1) cls.push('is-last');
+      const tags = [];
+      if (now) {
+        const d = dist(s);
+        if (state.heroReason === 'selected') tags.push('<span class="flow-tag sel">選択中</span>');
+        else if (state.heroReason === 'near') tags.push(`<span class="flow-tag now">いちばん近い${d !== null ? ' ' + esc(formatDist(d)) : ''}</span>`);
+        else tags.push('<span class="flow-tag now">次のおすすめ</span>');
+      } else if (good && !vis) {
+        const d = dist(s);
+        if (d !== null) tags.push(`<span>${esc(formatDist(d))}</span>`);
+      }
+      if (vis) tags.push('<span class="flow-tag done">見学済み</span>');
+      let state_ = '';
+      if (vis) state_ = '済';
+      else if (now) state_ = state.heroReason === 'selected' ? '選択' : (i === hereIdx ? 'いま' : '次');
+      else if (i === hereIdx) state_ = 'いま';
+      const node = `<li class="${cls.join(' ')}" data-id="${esc(s.id)}">
+        <span class="fr-state">${state_}</span>
+        <span class="flow-dot">${vis ? ICONS.check : i + 1}</span>
+        <div class="flow-card"><div class="flow-name">${esc(spotName(s))}</div>${tags.length ? `<div class="flow-meta">${tags.join('')}</div>` : ''}</div>
+      </li>`;
+      if (i === rs.length - 1) return node;
+
+      // スポットとスポットの間（区間）
+      const nx = rs[i + 1];
+      let legState = 'todo';
+      if (i + 1 === nowIdx && !state.visited.has(nx.id)) legState = 'next';
+      else if (vis && state.visited.has(nx.id)) legState = 'done';
+      const walk = s.lat !== null && s.lng !== null && nx.lat !== null && nx.lng !== null
+        ? `徒歩 約 ${Math.max(1, Math.round(haversine(s.lat, s.lng, nx.lat, nx.lng)))} m`
+        : '';
+      const here = marker && marker.leg === i;
+      return node + `<li class="flow-leg ${legState}" aria-hidden="true">
+        <span></span>
+        <span class="flow-seg">${here ? '<i class="flow-pos"></i>' : ''}</span>
+        <div class="flow-legtext">${walk ? esc(walk) : ''}${here ? `<div class="flow-pos-label">${esc(marker.text)}</div>` : ''}</div>
+      </li>`;
+    }).join('');
+
+    const html = `<div class="flow-head">
+        <div><div class="flow-sub">ROUTE</div><div class="flow-title">${esc(activeRoute().name)}</div></div>
+        <div class="flow-prog">見学済み ${done} / ${rs.length}<div class="flow-bar"><i style="width:${pct}%"></i></div></div>
+      </div>${here}` +
+      (rs.length ? `<ol class="flow-list">${items}</ol>` : '<div class="flow-empty">このコースにはスポットがありません</div>');
+
+    const box = $('#flowView');
+    if (html !== lastFlowHtml) {
+      box.innerHTML = html;
+      lastFlowHtml = html;
+    }
+    if (state.heroId && state.heroId !== lastFlowHero) {
+      lastFlowHero = state.heroId;
+      const el = box.querySelector('.flow-item.now');
+      if (el) box.scrollTo({ top: Math.max(0, el.offsetTop - box.clientHeight / 2 + el.offsetHeight / 2), behavior: 'smooth' });
+    }
+  }
+
   function renderSide() {
     const t = state.tour;
     const order = computeOrder();
     const hero = pickHero(order);
     const prevHero = state.heroId;
     state.heroId = hero ? hero.id : null;
+    state.heroReason = hero ? hero.reason : null;
 
     // ヒーローカード
     const heroEl = $('#hero');
@@ -652,6 +769,7 @@
 
     renderHeader();
     if (prevHero !== state.heroId) renderPins();
+    renderFlow();
   }
 
   function scheduleRender() {
@@ -1274,56 +1392,29 @@
   }
 
   // 起動画面：コース一覧と、選んだコースの回る順番
+  // 起動画面のコース：タイル（スポット数ぶんの点つき）
+  function welcomeTilesHtml() {
+    const cur = activeRoute();
+    return routeChoices().map((r) => {
+      const dots = '<i></i>'.repeat(Math.min(r.n, 12)) + (r.n > 12 ? `<b>+${r.n - 12}</b>` : '');
+      const del = r.id === '__all__'
+        ? ''
+        : `<button class="btn small danger route-del" type="button" data-del="${esc(r.id)}" aria-label="コース「${esc(r.name)}」を削除">削除</button>`;
+      return `<div class="route-item">` +
+        `<button class="route-opt${r.id === cur.id ? ' current' : ''}" type="button" data-route="${esc(r.id)}">` +
+        `<span class="tile-name">${esc(r.name)}</span><span class="tile-count">${r.n} か所</span><span class="tile-dots">${dots}</span></button>${del}</div>`;
+    }).join('');
+  }
+
   function renderWelcomeRoute() {
     const rs = routeSpots();
     const cur = activeRoute();
-    $('#welcomeRouteList').innerHTML = routeButtonsHtml();
+    $('#welcomeRouteList').innerHTML = welcomeTilesHtml();
     $('#welcomeOrder').innerHTML = rs.map((s, i) =>
       `<li><span class="wo-no">${i + 1}</span>${esc(spotName(s))}</li>`
     ).join('');
-    $('#wCount').textContent = String(rs.length);
     $('#wName').textContent = cur.name;
-    $('#wMeta').textContent = rs.length ? `最初は「${spotName(rs[0])}」から ・ ${rs.length} か所` : 'スポットがありません';
-    renderWelcomeMap();
-  }
-
-  // 起動画面の地図：選んだコースの経路と、番号付きのピン
-  function renderWelcomeMap() {
-    const t = state.tour;
-    const { W, H } = mapSize();
-    $('#wmap').setAttribute('viewBox', `0 0 ${W} ${H}`);
-    const bg = $('#wmapBg');
-    bg.textContent = '';
-    if (t.map) {
-      const img = svgEl('image', { x: 0, y: 0, width: W, height: H, preserveAspectRatio: 'none' });
-      img.setAttribute('href', t.map.image);
-      bg.appendChild(img);
-    } else {
-      for (let x = 0; x <= W; x += 50) bg.appendChild(svgEl('line', { x1: x, y1: 0, x2: x, y2: H, class: 'grid-line' }));
-      for (let y = 0; y <= H; y += 50) bg.appendChild(svgEl('line', { x1: 0, y1: y, x2: W, y2: y, class: 'grid-line' }));
-    }
-    const r = Math.max(16, W / 60);
-    const route = $('#wmapRoute');
-    const pins = $('#wmapPins');
-    route.textContent = '';
-    pins.textContent = '';
-    const placed = routeSpots().map((s, i) => ({ s, i, p: spotXY(s) })).filter((o) => o.p);
-    if (placed.length >= 2) {
-      const pts = placed.map((o) => `${o.p.x.toFixed(1)},${o.p.y.toFixed(1)}`).join(' ');
-      route.appendChild(svgEl('polyline', { points: pts, class: 'route', 'stroke-width': Math.max(3, r / 5) }));
-    }
-    placed.forEach(({ s, i, p }) => {
-      const g = svgEl('g', { class: i === 0 ? 'pin hero' : 'pin', transform: `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})` });
-      g.appendChild(svgEl('circle', { class: 'pulse', r, 'stroke-width': r / 4 }));
-      g.appendChild(svgEl('circle', { class: 'pin-body', r, 'stroke-width': r / 6 }));
-      const tx = svgEl('text', { 'font-size': r * 1.05 });
-      tx.textContent = String(i + 1);
-      g.appendChild(tx);
-      const label = svgEl('text', { class: 'pin-label', x: 0, y: r * 2.1, 'font-size': r * 0.85, 'text-anchor': 'middle', 'stroke-width': r / 3.5 });
-      label.textContent = spotName(s);
-      g.appendChild(label);
-      pins.appendChild(g);
-    });
+    $('#wMeta').textContent = rs.length ? `${rs.length} か所 ・ 最初は「${spotName(rs[0])}」から` : 'スポットがありません';
   }
 
   function renderRoutePick() {
@@ -1741,6 +1832,7 @@
     state.placingId = null;
     $('#mapHint').classList.add('hidden');
     document.querySelector('.map-panel').classList.remove('placing');
+    renderFlow();
     if (reopen && id) openSpotEditor(id);
   }
 
@@ -1892,6 +1984,7 @@
   // =========================================================
   function showWelcome() {
     const has = !!state.tour;
+    document.body.dataset.phase = 'prep';
     $('#welcome').classList.remove('hidden');
     $('#app').classList.add('hidden');
     $('#welcomeEmpty').classList.toggle('hidden', has);
@@ -1906,6 +1999,7 @@
   function startTour() {
     unlockSpeech();
     state.started = true;
+    document.body.dataset.phase = 'tour';
     $('#welcome').classList.add('hidden');
     $('#app').classList.remove('hidden');
     renderAll();
@@ -2000,6 +2094,18 @@
 
     // 地図
     $('#map').addEventListener('click', onMapClick);
+    $('#viewToggle').addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-view]');
+      if (!b) return;
+      state.settings.leftView = b.dataset.view;
+      saveSettings();
+      renderFlow();
+      if (b.dataset.view === 'map') { renderPins(); renderPos(); }
+    });
+    $('#flowView').addEventListener('click', (ev) => {
+      const li = ev.target.closest('.flow-item');
+      if (li) selectSpot(li.dataset.id);
+    });
     $('#btnCancelPlace').addEventListener('click', () => endPlacing(true));
 
     // ステージ
