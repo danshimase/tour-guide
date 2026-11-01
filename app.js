@@ -1275,10 +1275,55 @@
 
   // 起動画面：コース一覧と、選んだコースの回る順番
   function renderWelcomeRoute() {
+    const rs = routeSpots();
+    const cur = activeRoute();
     $('#welcomeRouteList').innerHTML = routeButtonsHtml();
-    $('#welcomeOrder').innerHTML = routeSpots().map((s, i) =>
+    $('#welcomeOrder').innerHTML = rs.map((s, i) =>
       `<li><span class="wo-no">${i + 1}</span>${esc(spotName(s))}</li>`
     ).join('');
+    $('#wCount').textContent = String(rs.length);
+    $('#wName').textContent = cur.name;
+    $('#wMeta').textContent = rs.length ? `最初は「${spotName(rs[0])}」から ・ ${rs.length} か所` : 'スポットがありません';
+    renderWelcomeMap();
+  }
+
+  // 起動画面の地図：選んだコースの経路と、番号付きのピン
+  function renderWelcomeMap() {
+    const t = state.tour;
+    const { W, H } = mapSize();
+    $('#wmap').setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const bg = $('#wmapBg');
+    bg.textContent = '';
+    if (t.map) {
+      const img = svgEl('image', { x: 0, y: 0, width: W, height: H, preserveAspectRatio: 'none' });
+      img.setAttribute('href', t.map.image);
+      bg.appendChild(img);
+    } else {
+      for (let x = 0; x <= W; x += 50) bg.appendChild(svgEl('line', { x1: x, y1: 0, x2: x, y2: H, class: 'grid-line' }));
+      for (let y = 0; y <= H; y += 50) bg.appendChild(svgEl('line', { x1: 0, y1: y, x2: W, y2: y, class: 'grid-line' }));
+    }
+    const r = Math.max(16, W / 60);
+    const route = $('#wmapRoute');
+    const pins = $('#wmapPins');
+    route.textContent = '';
+    pins.textContent = '';
+    const placed = routeSpots().map((s, i) => ({ s, i, p: spotXY(s) })).filter((o) => o.p);
+    if (placed.length >= 2) {
+      const pts = placed.map((o) => `${o.p.x.toFixed(1)},${o.p.y.toFixed(1)}`).join(' ');
+      route.appendChild(svgEl('polyline', { points: pts, class: 'route', 'stroke-width': Math.max(3, r / 5) }));
+    }
+    placed.forEach(({ s, i, p }) => {
+      const g = svgEl('g', { class: i === 0 ? 'pin hero' : 'pin', transform: `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})` });
+      g.appendChild(svgEl('circle', { class: 'pulse', r, 'stroke-width': r / 4 }));
+      g.appendChild(svgEl('circle', { class: 'pin-body', r, 'stroke-width': r / 6 }));
+      const tx = svgEl('text', { 'font-size': r * 1.05 });
+      tx.textContent = String(i + 1);
+      g.appendChild(tx);
+      const label = svgEl('text', { class: 'pin-label', x: 0, y: r * 2.1, 'font-size': r * 0.85, 'text-anchor': 'middle', 'stroke-width': r / 3.5 });
+      label.textContent = spotName(s);
+      g.appendChild(label);
+      pins.appendChild(g);
+    });
   }
 
   function renderRoutePick() {
@@ -1849,13 +1894,13 @@
     const has = !!state.tour;
     $('#welcome').classList.remove('hidden');
     $('#app').classList.add('hidden');
-    $('#welcomeNoData').classList.toggle('hidden', has);
-    $('#welcomeHasData').classList.toggle('hidden', !has);
-    if (has) renderWelcomeRoute();
-    $('#welcomeTitle').textContent = has ? state.tour.title : '見学ガイド';
-    $('#welcomeText').textContent = has
-      ? `${state.tour.spots.length} スポットの台本が入っています。`
-      : '台本ファイル（JSON）を読み込むか、サンプルで動作を試してください。';
+    $('#welcomeEmpty').classList.toggle('hidden', has);
+    $('#welcomeMain').classList.toggle('hidden', !has);
+    if (has) {
+      $('#welcomeTitle').textContent = state.tour.title;
+      $('#welcomeText').textContent = `${state.tour.spots.length} スポットの台本`;
+      renderWelcomeRoute();
+    }
   }
 
   function startTour() {
@@ -1872,6 +1917,7 @@
   // イベント
   // =========================================================
   function bindEvents() {
+    $('#btnStart').innerHTML = `${ICONS.play}<span>見学を開始</span>`;
     $('#btnQr').innerHTML = `${ICONS.qr}<span>QR</span>`;
     $('#btnMenu').innerHTML = `${ICONS.menu}<span>メニュー</span>`;
     $('#btnPrev').innerHTML = `${ICONS.prev}<span>前へ</span>`;

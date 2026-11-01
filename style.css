@@ -134,19 +134,6 @@ h1, h2, h3, h4 { margin: 0; font-weight: 700; }
 .welcome h2 { font-size: 44px; margin: 8px 0 12px; line-height: 1.2; }
 .welcome p { color: var(--muted); font-size: 17px; line-height: 1.7; }
 .welcome-actions { display: flex; flex-direction: column; align-items: center; gap: 14px; margin: 28px 0 8px; }
-.welcome-foot { font-size: 13px !important; margin-top: 24px; }
-#btnStart { position: sticky; bottom: 14px; z-index: 2; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55); }
-@media (max-height: 820px) {
-  .welcome-mark { width: 64px; height: 64px; margin-bottom: 8px; border-radius: 20px; }
-  .welcome-mark::after { inset: 17px; border-width: 6px; }
-  .welcome h2 { font-size: 34px; margin: 4px 0 6px; }
-  .welcome-actions { margin: 10px 0 4px; gap: 8px; }
-  .welcome-route { gap: 6px; }
-  .welcome-route .route-opt { min-height: 44px; font-size: 17px; padding: 4px 14px; }
-  .welcome-route .route-del { min-height: 36px; }
-  .welcome p { font-size: 15px; margin: 0; }
-  .btn.huge { min-height: 76px; font-size: 24px; }
-}
 
 /* ---------- ステージ（説明中） ---------- */
 .stage { position: fixed; inset: 0; z-index: 40; background: #05080f; display: flex; }
@@ -192,12 +179,33 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 .qr-view video { width: 100%; height: 100%; object-fit: cover; }
 .qr-frame { position: absolute; inset: 18% 28%; border: 4px solid var(--accent); border-radius: 18px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35); }
 
+
+/* ---------- 起動画面（台本あり）：見学中の画面と同じ作り ---------- */
+.welcome-main { flex: 1; min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100%; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+.welcome-main .topbar { border-bottom-color: transparent; }
+.welcome-main .layout { padding-top: 4px; }
+.welcome-main .hero-play svg { width: 34px; height: 34px; }
+.welcome-main .hero-name { font-size: 26px; }
+.welcome-main .hero-meta { font-size: 14px; }
+.welcome .welcome-foot { font-size: 12px; color: var(--muted); margin: 0; padding: 0 4px; line-height: 1.6; text-align: left; }
+.wm-order { position: absolute; left: 14px; right: 14px; bottom: 14px; background: rgba(10, 17, 30, 0.82); border: 1px solid var(--line2); border-radius: 16px; padding: 10px 12px 12px; }
+.wm-order-title { font-size: 11px; letter-spacing: 0.14em; color: var(--accent2); font-weight: 700; margin-bottom: 8px; }
+.course-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; }
+.course-list .route-item { gap: 0; border-bottom: 1px solid var(--line); }
+.course-list .route-item:last-child { border-bottom: none; }
+.course-list .route-opt { min-height: 64px; font-size: 18px; padding: 10px 16px; border: none; border-radius: 0; background: transparent; }
+.course-list .route-opt.current { background: rgba(255, 122, 26, 0.13); box-shadow: inset 4px 0 0 var(--accent); }
+.course-list .route-item:has(.route-opt.current) { background: rgba(255, 122, 26, 0.13); box-shadow: inset 4px 0 0 var(--accent); }
+.course-list .route-opt:active { background: var(--panel2); }
+.course-list .route-del { margin-right: 12px; }
+@media (orientation: portrait) {
+  .welcome-main .map-panel { display: flex; flex-direction: column; }
+  .welcome-main #wmap { flex: 1 1 auto; min-height: 0; height: auto; }
+  .welcome-main .wm-order { position: static; margin: 0 14px 14px; flex: none; }
+}
+
 /* ---------- コース ---------- */
-.welcome-route { width: min(620px, 92vw); text-align: left; display: flex; flex-direction: column; gap: 10px; }
-.welcome-route-title { font-size: 13px; letter-spacing: 0.1em; color: var(--accent2); font-weight: 700; margin-top: 4px; }
-.welcome-route .route-opt { min-height: 54px; font-size: 18px; padding: 8px 16px; }
-.welcome-route-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-.welcome-order { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; max-height: 150px; overflow-y: auto; }
+.welcome-order { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; max-height: 120px; overflow-y: auto; }
 .welcome-order li { display: inline-flex; align-items: center; gap: 8px; background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 4px 14px 4px 4px; font-size: 15px; font-weight: 600; color: var(--text); }
 .welcome-order .wo-no { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; }
 .route-pick-list { display: flex; flex-direction: column; gap: 10px; }

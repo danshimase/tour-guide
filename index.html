@@ -74,30 +74,66 @@
 
 <!-- 起動画面 -->
 <div class="welcome" id="welcome">
-  <div class="welcome-inner">
+  <div class="welcome-inner" id="welcomeEmpty">
     <div class="welcome-mark" aria-hidden="true"></div>
     <div class="brand-sub">FACTORY TOUR GUIDE</div>
-    <h2 id="welcomeTitle">見学ガイド</h2>
-    <p id="welcomeText">台本ファイルを読み込んでください。</p>
-    <div class="welcome-actions" id="welcomeNoData">
+    <h2>見学ガイド</h2>
+    <p>台本ファイル（JSON）を読み込むか、サンプルで動作を試してください。</p>
+    <div class="welcome-actions">
       <button class="btn primary big" id="btnWelcomeImport" type="button">台本ファイルを読み込む</button>
       <button class="btn big" id="btnWelcomeSample" type="button">サンプルで試す</button>
     </div>
-    <div class="welcome-actions hidden" id="welcomeHasData">
-      <div class="welcome-route" id="welcomeRouteBox">
-        <div class="welcome-route-title">見学コースと順番</div>
-        <div class="route-pick-list" id="welcomeRouteList"></div>
-        <div class="welcome-route-actions">
-          <button class="btn" type="button" id="btnWelcomeCustom">＋ 自分で選ぶ</button>
-          <button class="btn" type="button" id="btnWelcomeReorder">このコースの順番を変える</button>
+  </div>
+
+  <div class="welcome-main hidden" id="welcomeMain">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <div class="brand-sub">FACTORY TOUR GUIDE</div>
+          <h1 id="welcomeTitle">見学ガイド</h1>
         </div>
-        <div class="welcome-route-title">回る順番</div>
-        <ol class="welcome-order" id="welcomeOrder"></ol>
       </div>
-      <button class="btn primary huge" id="btnStart" type="button">見学を開始</button>
-      <button class="link-btn" id="btnWelcomeImport2" type="button">台本ファイルを読み込み直す</button>
-    </div>
-    <p class="welcome-foot">開始すると位置情報と音声を使います。画面は自動で消灯しません（対応端末のみ）。</p>
+      <div class="chips"><span class="chip" id="welcomeText"></span></div>
+      <div class="actions"><button class="link-btn" id="btnWelcomeImport2" type="button">台本ファイルを読み込み直す</button></div>
+    </header>
+
+    <main class="layout">
+      <section class="map-panel">
+        <svg id="wmap" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" viewBox="0 0 1000 700" role="img" aria-label="選択中のコースの経路">
+          <g id="wmapBg"></g>
+          <g id="wmapRoute"></g>
+          <g id="wmapPins"></g>
+        </svg>
+        <div class="wm-order">
+          <div class="wm-order-title">回る順番</div>
+          <ol class="welcome-order" id="welcomeOrder"></ol>
+        </div>
+      </section>
+
+      <section class="side-panel">
+        <div class="hero" id="welcomeHero">
+          <div class="hero-reason">選択中のコース</div>
+          <div class="hero-main">
+            <div class="hero-no" id="wCount">0</div>
+            <div>
+              <div class="hero-name" id="wName"></div>
+              <div class="hero-meta" id="wMeta"></div>
+            </div>
+          </div>
+          <button class="hero-play" id="btnStart" type="button"></button>
+        </div>
+        <div class="list-head">
+          <span>コースを選ぶ</span>
+          <div class="list-head-actions">
+            <button class="btn small" type="button" id="btnWelcomeCustom">＋ 自分で選ぶ</button>
+            <button class="btn small" type="button" id="btnWelcomeReorder">順番を変える</button>
+          </div>
+        </div>
+        <div class="course-list" id="welcomeRouteList"></div>
+        <p class="welcome-foot">開始すると位置情報と音声を使います。画面は自動で消灯しません（対応端末のみ）。</p>
+      </section>
+    </main>
   </div>
 </div>
 
