@@ -1231,10 +1231,46 @@
   // コース選択のボタン群（起動画面と、見学中のコース選択で共通）
   function routeButtonsHtml() {
     const cur = activeRoute();
-    return routeChoices().map((r) =>
-      `<button class="route-opt${r.id === cur.id ? ' current' : ''}" type="button" data-route="${esc(r.id)}">` +
-      `<span class="route-opt-name">${esc(r.name)}</span><span class="route-opt-count">${r.n} か所</span></button>`
-    ).join('');
+    return routeChoices().map((r) => {
+      const del = r.id === '__all__'
+        ? ''
+        : `<button class="btn small danger route-del" type="button" data-del="${esc(r.id)}" aria-label="コース「${esc(r.name)}」を削除">削除</button>`;
+      return `<div class="route-item">` +
+        `<button class="route-opt${r.id === cur.id ? ' current' : ''}" type="button" data-route="${esc(r.id)}">` +
+        `<span class="route-opt-name">${esc(r.name)}</span><span class="route-opt-count">${r.n} か所</span></button>${del}</div>`;
+    }).join('');
+  }
+
+  // コースの削除。台本に保存されたコースはPIN確認あり、「自分で選んだコース」はPINなし
+  async function removeRouteById(id) {
+    const t = state.tour;
+    if (id === CUSTOM_ID) {
+      if (!confirm('「自分で選んだコース」を削除しますか？')) return;
+      state.customRoute = [];
+      await kvSet('customRoute', []);
+      if (state.routeId === CUSTOM_ID) {
+        state.routeId = null;
+        await kvSet('routeId', null);
+      }
+    } else {
+      const r = t.routes.find((x) => x.id === id);
+      if (!r) return;
+      if (!confirm(`コース「${r.name}」を削除しますか？（スポット自体は消えません）`)) return;
+      if (!state.editMode && !(await checkPin())) return;
+      t.routes = t.routes.filter((x) => x.id !== id);
+      if (state.routeId === id) {
+        state.routeId = t.routes.length ? t.routes[0].id : null;
+        await kvSet('routeId', state.routeId);
+      }
+      await saveTour();
+      await setDirty(true);
+    }
+    state.selectedId = null;
+    state.heroAutoId = null;
+    renderAll();
+    if ($('#dlgRoutePick').open) renderRoutePick();
+    if (!$('#welcome').classList.contains('hidden')) showWelcome();
+    toast('コースを削除しました');
   }
 
   // 起動画面：コース一覧と、選んだコースの回る順番
@@ -1245,8 +1281,12 @@
     ).join('');
   }
 
-  function openRoutePick() {
+  function renderRoutePick() {
     $('#routePickList').innerHTML = routeButtonsHtml();
+  }
+
+  function openRoutePick() {
+    renderRoutePick();
     $('#chkResetVisited').checked = true;
     $('#dlgRoutePick').showModal();
   }
@@ -1878,6 +1918,8 @@
     $('#btnWelcomeCustom').addEventListener('click', () => openCustom(false));
     $('#btnWelcomeReorder').addEventListener('click', () => openCustom(true));
     $('#welcomeRouteList').addEventListener('click', (ev) => {
+      const d = ev.target.closest('[data-del]');
+      if (d) { removeRouteById(d.dataset.del); return; }
       const b = ev.target.closest('[data-route]');
       if (b) setRoute(b.dataset.route, true);
     });
@@ -1888,6 +1930,8 @@
     $('#btnCustomStart').addEventListener('click', startCustom);
     $('#btnCustomSave').addEventListener('click', saveCustomAsRoute);
     $('#routePickList').addEventListener('click', async (ev) => {
+      const d = ev.target.closest('[data-del]');
+      if (d) { await removeRouteById(d.dataset.del); return; }
       const b = ev.target.closest('[data-route]');
       if (!b) return;
       await setRoute(b.dataset.route, $('#chkResetVisited').checked);
