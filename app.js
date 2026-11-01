@@ -1365,16 +1365,22 @@
   }
 
   function renderCustom() {
-    $('#customList').innerHTML = state.tour.spots.map((s) => {
-      const i = customDraft.indexOf(s.id);
-      const on = i >= 0;
-      return `<li class="route-row cust-row${on ? ' on' : ''}" data-id="${esc(s.id)}">
-        <span class="cust-no">${on ? i + 1 : ''}</span>
+    // 選んだスポットを番号順（昇順）に上へ集め、選んでいないスポットは下にまとめる
+    const chosen = customDraft.map(findSpot).filter(Boolean);
+    const rest = state.tour.spots.filter((s) => !customDraft.includes(s.id));
+    const chosenHtml = chosen.map((s, i) => `<li class="route-row cust-row on" data-id="${esc(s.id)}">
+        <span class="cust-no">${i + 1}</span>
         <span class="route-row-name">${esc(s.name)}</span>
-        ${on ? `<button class="btn small" type="button" data-act="up" data-id="${esc(s.id)}"${i === 0 ? ' disabled' : ''} aria-label="上へ">↑</button>
-        <button class="btn small" type="button" data-act="down" data-id="${esc(s.id)}"${i === customDraft.length - 1 ? ' disabled' : ''} aria-label="下へ">↓</button>` : ''}
-      </li>`;
-    }).join('');
+        <button class="btn small" type="button" data-act="up" data-id="${esc(s.id)}"${i === 0 ? ' disabled' : ''} aria-label="上へ">↑</button>
+        <button class="btn small" type="button" data-act="down" data-id="${esc(s.id)}"${i === chosen.length - 1 ? ' disabled' : ''} aria-label="下へ">↓</button>
+      </li>`).join('');
+    const restHtml = rest.map((s) => `<li class="route-row cust-row" data-id="${esc(s.id)}">
+        <span class="cust-no"></span>
+        <span class="route-row-name">${esc(s.name)}</span>
+      </li>`).join('');
+    $('#customList').innerHTML = chosenHtml +
+      (rest.length ? `<li class="cust-sep">${chosen.length ? '選んでいないスポット（タップで末尾に追加）' : 'スポットをタップして選びます'}</li>` : '') +
+      restHtml;
     $('#customCount').textContent = `${customDraft.length} か所を選択中`;
     $('#customError').textContent = '';
   }

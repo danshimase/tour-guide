@@ -213,6 +213,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 .cust-no { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--line2); display: flex; align-items: center; justify-content: center; font-weight: 800; flex: none; }
 .cust-row.on .cust-no { background: var(--accent); border-color: var(--accent); color: #fff; }
 .cust-count { margin-right: auto; align-self: center; }
+.cust-sep { padding: 8px 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: var(--accent2); background: var(--panel2); border-bottom: 1px solid var(--line); }
 
 /* ---------- トースト ---------- */
 .toast { position: fixed; left: 50%; top: calc(20px + env(safe-area-inset-top)); transform: translate(-50%, -20px); background: #fff; color: #0a111e; font-weight: 700; padding: 12px 20px; border-radius: 14px; opacity: 0; pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease; z-index: 100; max-width: 90vw; text-align: center; }
