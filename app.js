@@ -207,7 +207,7 @@
     if (!t || typeof t !== 'object' || !Array.isArray(t.spots)) {
       throw new Error('台本ファイルの形式が正しくありません（spots がありません）');
     }
-    const out = { version: 1, title: String(t.title || '見学ツアー'), map: null, spots: [] };
+    const out = { version: 1, title: String(t.title || '見学ツアー'), travel: t.travel === 'car' ? 'car' : 'walk', map: null, spots: [] };
     if (t.map && typeof t.map.image === 'string' && t.map.image) {
       out.map = { image: t.map.image, width: num(t.map.width) || 0, height: num(t.map.height) || 0 };
     }
@@ -356,6 +356,70 @@
     };
   }
 
+  // 緯度経度 → 画素座標（射影変換）。鳥瞰図のような斜めの画像用。基準点が6点以上のときだけ使う
+  function fitHomography(points) {
+    if (points.length < 6) return null;
+    const n = points.length;
+    const lat0 = points.reduce((a, p) => a + p.lat, 0) / n;
+    const lng0 = points.reduce((a, p) => a + p.lng, 0) / n;
+    const kx = 111320 * Math.cos((lat0 * Math.PI) / 180);
+    const ky = 110540;
+    const pts = points.map((p) => ({ u: (p.lng - lng0) * kx, v: (p.lat - lat0) * ky, x: p.x, y: p.y }));
+    // 数値の安定のため、入力（メートル）を平均0・おおよそ1の大きさに正規化する
+    const sc = Math.sqrt(pts.reduce((a, q) => a + q.u * q.u + q.v * q.v, 0) / n) || 1;
+    const rows = [];
+    const rhs = [];
+    pts.forEach((q) => {
+      const u = q.u / sc;
+      const v = q.v / sc;
+      rows.push([u, v, 1, 0, 0, 0, -u * q.x, -v * q.x]); rhs.push(q.x);
+      rows.push([0, 0, 0, u, v, 1, -u * q.y, -v * q.y]); rhs.push(q.y);
+    });
+    // 正規方程式 (AtA) h = At b を、部分ピボット付きのガウス消去で解く
+    const N = 8;
+    const M = Array.from({ length: N }, () => new Array(N + 1).fill(0));
+    rows.forEach((r, k) => {
+      for (let i = 0; i < N; i++) {
+        for (let j = 0; j < N; j++) M[i][j] += r[i] * r[j];
+        M[i][N] += r[i] * rhs[k];
+      }
+    });
+    for (let c = 0; c < N; c++) {
+      let piv = c;
+      for (let r = c + 1; r < N; r++) if (Math.abs(M[r][c]) > Math.abs(M[piv][c])) piv = r;
+      if (Math.abs(M[piv][c]) < 1e-9) return null;
+      [M[c], M[piv]] = [M[piv], M[c]];
+      for (let r = 0; r < N; r++) {
+        if (r === c) continue;
+        const f = M[r][c] / M[c][c];
+        for (let j = c; j <= N; j++) M[r][j] -= f * M[c][j];
+      }
+    }
+    const h = M.map((row, i) => row[N] / row[i]);
+    if (h.some((x) => !Number.isFinite(x))) return null;
+    const apply = (lat, lng) => {
+      const u = ((lng - lng0) * kx) / sc;
+      const v = ((lat - lat0) * ky) / sc;
+      const w = h[6] * u + h[7] * v + 1;
+      return { w, x: (h[0] * u + h[1] * v + h[2]) / w, y: (h[3] * u + h[4] * v + h[5]) / w };
+    };
+    const c0 = apply(lat0, lng0);
+    const e = apply(lat0, lng0 + 10 / kx);
+    const nn = apply(lat0 + 10 / ky, lng0);
+    const det = ((e.x - c0.x) * (nn.y - c0.y) - (nn.x - c0.x) * (e.y - c0.y)) / 100;
+    const pxPerMeter = Math.sqrt(Math.abs(det));
+    if (!Number.isFinite(pxPerMeter) || pxPerMeter <= 0) return null;
+    return {
+      kind: 'homography',
+      apply,
+      toXY(lat, lng) {
+        const r = apply(lat, lng);
+        return { x: r.x, y: r.y };
+      },
+      pxPerMeter,
+    };
+  }
+
   // 構内図が無いとき：スポットの緯度経度から簡易マップを作る
   function fitSchematic(points, W, H, pad) {
     if (!points.length) return null;
@@ -392,10 +456,31 @@
     if (!t) { state.projector = null; return; }
     if (t.map) {
       const pts = t.spots.filter((s) => s.lat !== null && s.lng !== null && s.x !== null && s.y !== null);
-      state.projector = fitAffine(pts);
+      const aff = fitAffine(pts);
+      state.projector = aff;
+      // 基準点が6点以上あれば、斜めの画像（鳥瞰図）に合う射影変換も試し、
+      // 誤差が明らかに小さく、構内の地点が画像の極端な位置に飛ばない場合だけ採用する
+      const hom = pts.length >= 6 ? fitHomography(pts) : null;
+      if (aff && hom) {
+        const rms = (proj) => Math.sqrt(pts.reduce((a, p) => {
+          const q = proj.toXY(p.lat, p.lng);
+          return a + (q.x - p.x) ** 2 + (q.y - p.y) ** 2;
+        }, 0) / pts.length);
+        const { W, H } = mapSize();
+        const lat0 = pts.reduce((a, p) => a + p.lat, 0) / pts.length;
+        const lng0 = pts.reduce((a, p) => a + p.lng, 0) / pts.length;
+        const near = t.spots.filter((s) => s.lat !== null && s.lng !== null &&
+          haversine(lat0, lng0, s.lat, s.lng) < 3000);
+        const sane = near.every((s) => {
+          const r = hom.apply(s.lat, s.lng);
+          return r.w > 0.3 && r.w < 3 && r.x > -W && r.x < 2 * W && r.y > -H && r.y < 2 * H;
+        });
+        if (sane && rms(hom) < rms(aff) * 0.8) state.projector = hom;
+      }
     } else {
       const { W, H } = mapSize();
-      const pts = t.spots.filter((s) => s.lat !== null && s.lng !== null);
+      let pts = routeSpots().filter((s) => s.lat !== null && s.lng !== null);
+      if (!pts.length) pts = t.spots.filter((s) => s.lat !== null && s.lng !== null);
       state.projector = fitSchematic(pts, W, H, 90);
     }
   }
@@ -429,10 +514,11 @@
       return { id: state.selectedId, reason: 'selected' };
     }
     if (order.good) {
-      const nearest = order.items.find((i) => i.d !== null);
+      // 見学済みでないスポットのうち、いちばん近いものを優先（出発と帰着が同じ場所のとき、帰着を選ぶため）
+      const nearest = order.items.find((i) => i.d !== null && !state.visited.has(i.s.id)) || order.items.find((i) => i.d !== null);
       if (nearest) {
         const cur = order.items.find((i) => i.s.id === state.heroAutoId);
-        if (cur && cur.d !== null && cur.s.id !== nearest.s.id && cur.d - nearest.d < HERO_HYSTERESIS_M) {
+        if (cur && !state.visited.has(cur.s.id) && cur.d !== null && cur.s.id !== nearest.s.id && cur.d - nearest.d < HERO_HYSTERESIS_M) {
           return { id: cur.s.id, reason: 'near' };
         }
         state.heroAutoId = nearest.s.id;
@@ -535,14 +621,16 @@
   function renderPins() {
     const t = state.tour;
     const { W } = mapSize();
-    const r = Math.max(14, W / 70);
+    const r = Math.max(14, W / 45);
     const pins = $('#mapPins');
     const route = $('#mapRoute');
     pins.textContent = '';
     route.textContent = '';
 
     const rs = routeSpots();
-    const placed = rs.map((s) => ({ s, p: spotXY(s) })).filter((o) => o.p);
+    // 地図の範囲から大きく外れた地点（遠く離れた発電所など）は、ピンも経路の線も描かない
+    const inRange = (p) => p.x > -W * 0.3 && p.x < W * 1.3 && p.y > -mapSize().H * 0.3 && p.y < mapSize().H * 1.3;
+    const placed = rs.map((s) => ({ s, p: spotXY(s) })).filter((o) => o.p && inRange(o.p));
     if (placed.length >= 2) {
       const pts = placed.map((o) => `${o.p.x.toFixed(1)},${o.p.y.toFixed(1)}`).join(' ');
       route.appendChild(svgEl('polyline', { points: pts, class: 'route', 'stroke-width': Math.max(3, r / 5) }));
@@ -558,9 +646,12 @@
       const tx = svgEl('text', { 'font-size': r * 1.05 });
       tx.textContent = String(dispNo(s));
       g.appendChild(tx);
-      const label = svgEl('text', { class: 'pin-label', x: 0, y: r * 2.1, 'font-size': r * 0.85, 'text-anchor': 'middle', 'stroke-width': r / 3.5 });
-      label.textContent = spotName(s);
-      g.appendChild(label);
+      // 地点名は、いま選ばれているスポットだけに出す（ピンが近接していても読めるように）
+      if (s.id === state.heroId) {
+        const label = svgEl('text', { class: 'pin-label', x: 0, y: r * 2.1, 'font-size': r * 0.85, 'text-anchor': 'middle', 'stroke-width': r / 3.5 });
+        label.textContent = spotName(s);
+        g.appendChild(label);
+      }
       g.addEventListener('click', (ev) => {
         if (state.placingId) return;
         ev.stopPropagation();
@@ -568,11 +659,17 @@
       });
       pins.appendChild(g);
     });
+    // いま選ばれているスポットは、ほかのピンの上（最前面）に描く
+    const heroPin = pins.querySelector('.pin.hero');
+    if (heroPin) pins.appendChild(heroPin);
 
     const note = $('#mapNote');
-    const unplaced = rs.length - placed.length;
+    const located = rs.filter((s) => spotXY(s)).length;
+    const unplaced = rs.length - located;
+    const outside = located - placed.length;
     const msgs = [];
     if (unplaced > 0) msgs.push(`地図に未配置のスポット ${unplaced} 件`);
+    if (outside > 0) msgs.push(`地図の範囲外のスポット ${outside} 件`);
     if (t.map && !state.projector) msgs.push('現在地表示には、緯度経度と地図位置の両方を持つスポットが3件以上必要です');
     note.textContent = msgs.join(' ／ ');
   }
@@ -686,9 +783,13 @@
       let legState = 'todo';
       if (i + 1 === nowIdx && !state.visited.has(nx.id)) legState = 'next';
       else if (vis && state.visited.has(nx.id)) legState = 'done';
-      const walk = s.lat !== null && s.lng !== null && nx.lat !== null && nx.lng !== null
-        ? `徒歩 約 ${Math.max(1, Math.round(haversine(s.lat, s.lng, nx.lat, nx.lng)))} m`
-        : '';
+      let walk = '';
+      if (s.lat !== null && s.lng !== null && nx.lat !== null && nx.lng !== null) {
+        const dm = haversine(s.lat, s.lng, nx.lat, nx.lng);
+        walk = state.tour.travel === 'car'
+          ? `車 約 ${Math.max(1, Math.ceil(dm / (10000 / 60)))} 分 ・ 直線 約 ${Math.max(1, Math.round(dm))} m`
+          : `徒歩 約 ${Math.max(1, Math.round(dm))} m`;
+      }
       const here = marker && marker.leg === i;
       return node + `<li class="flow-leg ${legState}" aria-hidden="true">
         <span></span>
@@ -1351,6 +1452,7 @@
     }
     state.selectedId = null;
     state.heroAutoId = null;
+    rebuildProjector();
     renderAll();
     if (!$('#welcome').classList.contains('hidden')) showWelcome();
   }
@@ -1881,7 +1983,10 @@
 
   function updateMapStatus() {
     const m = pendingMap !== undefined ? pendingMap : state.tour.map;
-    $('#mapStatus').textContent = m ? `構内図：${m.width} × ${m.height} px${pendingMap !== undefined ? '（保存で確定）' : ''}` : `構内図：なし${pendingMap !== undefined ? '（保存で確定）' : ''}`;
+    const refs = state.tour.spots.filter((s) => s.lat !== null && s.lng !== null && s.x !== null && s.y !== null).length;
+    const kind = state.projector ? (state.projector.kind === 'homography' ? '射影変換（斜めの画像用）' : 'アフィン') : '未設定';
+    const base = m ? `構内図：${m.width} × ${m.height} px${pendingMap !== undefined ? '（保存で確定）' : ''}` : `構内図：なし${pendingMap !== undefined ? '（保存で確定）' : ''}`;
+    $('#mapStatus').textContent = m ? `${base} ・ 基準点 ${refs} か所（3か所以上で現在地を表示、6か所以上で斜めの画像に補正）・ 方式：${kind}` : base;
   }
 
   async function saveTourSettings(ev) {
