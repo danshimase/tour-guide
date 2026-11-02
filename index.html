@@ -328,6 +328,12 @@
       </div>
       <p class="muted small" id="mapStatus"></p>
     </div>
+    <div class="dlg-section" id="calibSection">
+      <h4>地図の基準点</h4>
+      <p class="muted small">写真や図面の中で位置がはっきり分かる場所（建物の角、煙突の根元など）を、緯度経度と地図上の位置の両方で登録します。地図アプリで場所を長押しして出る緯度経度を、そのまま貼り付けられます。3か所以上で現在地を表示し、5か所以上で斜めの写真に補正します。4か所目から、点ごとの誤差で入力ミスを見つけられます。</p>
+      <ul class="route-list" id="calibList"></ul>
+      <div class="row-btns"><button class="btn" type="button" id="btnCalibAdd">＋ 基準点を追加</button></div>
+    </div>
     <div class="dlg-section">
       <h4>編集用PIN</h4>
       <label class="field">新しいPIN（変更しない場合は空欄）<input type="password" id="tPin" inputmode="numeric" autocomplete="new-password"></label>
@@ -335,6 +341,17 @@
     <div class="dlg-foot">
       <button class="btn primary" type="submit">保存</button>
     </div>
+  </form>
+</dialog>
+
+<!-- 基準点の追加 -->
+<dialog id="dlgCalib">
+  <form class="dlg narrow" id="formCalib">
+    <div class="dlg-head"><h3>基準点を追加</h3><button class="btn small" type="button" id="btnCalibCancel">キャンセル</button></div>
+    <label class="field">名前<input type="text" id="cName" placeholder="煙突の根元"></label>
+    <label class="field">緯度経度<input type="text" id="cLatLng" inputmode="text" placeholder="42.636134, 141.588325" autocomplete="off"></label>
+    <p class="error small" id="cError"></p>
+    <div class="dlg-foot"><button class="btn primary" type="submit">地図で位置を指定</button></div>
   </form>
 </dialog>
 

@@ -31,6 +31,7 @@
     editMode: false,
     dirty: false,
     placingId: null,
+    placingCalib: null,
     projector: null,
     settings: { rate: 1.0, voiceJa: '', voiceEn: '', accLimit: 50, leftView: 'flow', theme: 'light' },
     speaking: null,
@@ -249,6 +250,16 @@
         out.routes.push({ id: rid, name: String(r.name || 'コース' + (i + 1)), spots: list });
       });
     }
+    out.calib = [];
+    if (Array.isArray(t.calib)) {
+      t.calib.forEach((c, i) => {
+        if (!c) return;
+        const lat = num(c.lat);
+        const lng = num(c.lng);
+        if (lat === null || lng === null) return;
+        out.calib.push({ id: String(c.id || 'C' + (i + 1)), name: String(c.name || '基準点' + (i + 1)), lat, lng, x: num(c.x), y: num(c.y) });
+      });
+    }
     return out;
   }
 
@@ -356,9 +367,9 @@
     };
   }
 
-  // 緯度経度 → 画素座標（射影変換）。鳥瞰図のような斜めの画像用。基準点が6点以上のときだけ使う
+  // 緯度経度 → 画素座標（射影変換）。鳥瞰図のような斜めの画像用。基準点が5点以上のときだけ使う
   function fitHomography(points) {
-    if (points.length < 6) return null;
+    if (points.length < 5) return null;
     const n = points.length;
     const lat0 = points.reduce((a, p) => a + p.lat, 0) / n;
     const lng0 = points.reduce((a, p) => a + p.lng, 0) / n;
@@ -451,16 +462,24 @@
     return { W: 1000, H: 700 };
   }
 
+  // 地図の位置合わせに使う基準点：緯度経度と地図上の位置の両方を持つ、スポットと「基準点」
+  function refPoints() {
+    const t = state.tour;
+    const fromSpots = t.spots.filter((s) => s.lat !== null && s.lng !== null && s.x !== null && s.y !== null);
+    const fromCalib = (t.calib || []).filter((c) => c.x !== null && c.y !== null);
+    return fromSpots.concat(fromCalib);
+  }
+
   function rebuildProjector() {
     const t = state.tour;
     if (!t) { state.projector = null; return; }
     if (t.map) {
-      const pts = t.spots.filter((s) => s.lat !== null && s.lng !== null && s.x !== null && s.y !== null);
+      const pts = refPoints();
       const aff = fitAffine(pts);
       state.projector = aff;
-      // 基準点が6点以上あれば、斜めの画像（鳥瞰図）に合う射影変換も試し、
+      // 基準点が5点以上あれば、斜めの画像（鳥瞰図）に合う射影変換も試し、
       // 誤差が明らかに小さく、構内の地点が画像の極端な位置に飛ばない場合だけ採用する
-      const hom = pts.length >= 6 ? fitHomography(pts) : null;
+      const hom = pts.length >= 5 ? fitHomography(pts) : null;
       if (aff && hom) {
         const rms = (proj) => Math.sqrt(pts.reduce((a, p) => {
           const q = proj.toXY(p.lat, p.lng);
@@ -636,6 +655,21 @@
       route.appendChild(svgEl('polyline', { points: pts, class: 'route', 'stroke-width': Math.max(3, r / 5) }));
     }
 
+    // 編集モード中は、基準点（紫の十字）も描く
+    if (state.editMode || state.placingCalib) {
+      (t.calib || []).filter((c) => c.x !== null && c.y !== null).forEach((c) => {
+        const g = svgEl('g', { class: 'calib-mark', transform: `translate(${c.x} ${c.y})` });
+        const a = r * 1.1;
+        g.appendChild(svgEl('line', { x1: -a, y1: 0, x2: a, y2: 0, 'stroke-width': r / 5 }));
+        g.appendChild(svgEl('line', { x1: 0, y1: -a, x2: 0, y2: a, 'stroke-width': r / 5 }));
+        g.appendChild(svgEl('circle', { r: r * 0.55, 'stroke-width': r / 6 }));
+        const tx = svgEl('text', { x: r * 0.8, y: -r * 0.8, 'font-size': r * 0.75, 'stroke-width': r / 4 });
+        tx.textContent = c.name;
+        g.appendChild(tx);
+        pins.appendChild(g);
+      });
+    }
+
     placed.forEach(({ s, p }) => {
       const cls = ['pin'];
       if (state.visited.has(s.id)) cls.push('visited');
@@ -707,7 +741,7 @@
     if (!state.tour) return;
     const panel = document.querySelector('.map-panel');
     // 地図上で位置を指定している間は、地図を出す
-    const view = state.placingId ? 'map' : state.settings.leftView;
+    const view = (state.placingId || state.placingCalib) ? 'map' : state.settings.leftView;
     panel.dataset.view = view;
     document.querySelectorAll('#viewToggle button').forEach((b) => b.classList.toggle('on', b.dataset.view === view));
     if (view !== 'flow') { lastFlowHtml = ''; lastFlowHero = null; return; }
@@ -1940,15 +1974,18 @@
 
   function endPlacing(reopen) {
     const id = state.placingId;
+    const calibId = state.placingCalib;
     state.placingId = null;
+    state.placingCalib = null;
     $('#mapHint').classList.add('hidden');
     document.querySelector('.map-panel').classList.remove('placing');
     renderFlow();
+    if (reopen && calibId) { openTourSettings(); return; }
     if (reopen && id) openSpotEditor(id);
   }
 
   async function onMapClick(ev) {
-    if (!state.placingId) return;
+    if (!state.placingId && !state.placingCalib) return;
     const svg = $('#map');
     const pt = svg.createSVGPoint();
     pt.x = ev.clientX;
@@ -1958,9 +1995,12 @@
     const p = pt.matrixTransform(ctm.inverse());
     const { W, H } = mapSize();
     if (p.x < 0 || p.y < 0 || p.x > W || p.y > H) { toast('地図の範囲内をタップしてください'); return; }
-    const s = findSpot(state.placingId);
-    s.x = Math.round(p.x);
-    s.y = Math.round(p.y);
+    const target = state.placingCalib
+      ? (state.tour.calib || []).find((x) => x.id === state.placingCalib)
+      : findSpot(state.placingId);
+    if (!target) { endPlacing(false); return; }
+    target.x = Math.round(p.x);
+    target.y = Math.round(p.y);
     await saveTour();
     await setDirty(true);
     rebuildProjector();
@@ -1983,10 +2023,94 @@
 
   function updateMapStatus() {
     const m = pendingMap !== undefined ? pendingMap : state.tour.map;
-    const refs = state.tour.spots.filter((s) => s.lat !== null && s.lng !== null && s.x !== null && s.y !== null).length;
+    const refs = refPoints().length;
     const kind = state.projector ? (state.projector.kind === 'homography' ? '射影変換（斜めの画像用）' : 'アフィン') : '未設定';
     const base = m ? `構内図：${m.width} × ${m.height} px${pendingMap !== undefined ? '（保存で確定）' : ''}` : `構内図：なし${pendingMap !== undefined ? '（保存で確定）' : ''}`;
-    $('#mapStatus').textContent = m ? `${base} ・ 基準点 ${refs} か所（3か所以上で現在地を表示、6か所以上で斜めの画像に補正）・ 方式：${kind}` : base;
+    $('#mapStatus').textContent = m ? `${base} ・ 基準点 ${refs} か所（スポットの位置と、下の「地図の基準点」の合計）・ 方式：${kind}` : base;
+    renderCalibList();
+  }
+
+  // ---------------------------------------------------------
+  // 地図の基準点（緯度経度が分かる場所を、写真の上でタップして登録する）
+  // ---------------------------------------------------------
+  function parseLatLng(text) {
+    const nums = String(text).replace(/[，、]/g, ',').match(/-?\d+(?:\.\d+)?/g);
+    if (!nums || nums.length < 2) return null;
+    const lat = Number(nums[0]);
+    const lng = Number(nums[1]);
+    if (!(lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180)) return null;
+    return { lat, lng };
+  }
+
+  function renderCalibList() {
+    const t = state.tour;
+    const hasMap = !!t.map && pendingMap === undefined;
+    $('#calibSection').classList.toggle('hidden', !hasMap);
+    if (!hasMap) return;
+    const proj = state.projector;
+    const refs = refPoints().length;
+    $('#calibList').innerHTML = (t.calib || []).map((c) => {
+      const placed = c.x !== null ? `位置 (${c.x}, ${c.y})` : '地図上の位置：未指定';
+      let err = '';
+      if (c.x !== null && proj && refs >= 4) {
+        const q = proj.toXY(c.lat, c.lng);
+        err = ` ・ 誤差 ${Math.round(Math.hypot(q.x - c.x, q.y - c.y))} px`;
+      }
+      return `<li class="route-row">
+        <div class="calib-main"><div class="calib-name">${esc(c.name)}</div>
+        <div class="calib-sub">${c.lat.toFixed(6)}, ${c.lng.toFixed(6)} ・ ${placed}${err}</div></div>
+        <button class="btn small" type="button" data-calib-place="${esc(c.id)}">位置を指定</button>
+        <button class="btn small danger" type="button" data-calib-del="${esc(c.id)}">削除</button>
+      </li>`;
+    }).join('') || '<li class="route-row muted small">基準点はまだありません</li>';
+  }
+
+  function openCalibDialog() {
+    $('#cName').value = '';
+    $('#cLatLng').value = '';
+    $('#cError').textContent = '';
+    $('#dlgCalib').showModal();
+  }
+
+  async function submitCalib(ev) {
+    ev.preventDefault();
+    const ll = parseLatLng($('#cLatLng').value);
+    if (!ll) {
+      $('#cError').textContent = '緯度経度を読み取れません。「42.636134, 141.588325」のように入力してください';
+      return;
+    }
+    const t = state.tour;
+    if (!t.calib) t.calib = [];
+    let n = t.calib.length + 1;
+    while (t.calib.some((c) => c.id === 'C' + n)) n++;
+    const c = { id: 'C' + n, name: $('#cName').value.trim() || `基準点${t.calib.length + 1}`, lat: ll.lat, lng: ll.lng, x: null, y: null };
+    t.calib.push(c);
+    await saveTour();
+    await setDirty(true);
+    $('#dlgCalib').close();
+    startPlacingCalib(c.id);
+  }
+
+  function startPlacingCalib(id) {
+    const c = (state.tour.calib || []).find((x) => x.id === id);
+    if (!c) return;
+    $('#dlgTour').close();
+    state.placingCalib = id;
+    $('#mapHintText').textContent = `「${c.name}」の位置を、地図でタップしてください`;
+    $('#mapHint').classList.remove('hidden');
+    document.querySelector('.map-panel').classList.add('placing');
+    renderAll();
+  }
+
+  async function deleteCalib(id) {
+    const c = (state.tour.calib || []).find((x) => x.id === id);
+    if (!c || !confirm(`基準点「${c.name}」を削除しますか？`)) return;
+    state.tour.calib = state.tour.calib.filter((x) => x.id !== id);
+    await saveTour();
+    await setDirty(true);
+    rebuildProjector();
+    renderAll();
+    updateMapStatus();
   }
 
   async function saveTourSettings(ev) {
@@ -2330,6 +2454,15 @@
 
     // ツアー設定
     $('#formTour').addEventListener('submit', saveTourSettings);
+    $('#btnCalibAdd').addEventListener('click', openCalibDialog);
+    $('#btnCalibCancel').addEventListener('click', () => $('#dlgCalib').close());
+    $('#formCalib').addEventListener('submit', submitCalib);
+    $('#calibList').addEventListener('click', (ev) => {
+      const pl = ev.target.closest('[data-calib-place]');
+      if (pl) { startPlacingCalib(pl.dataset.calibPlace); return; }
+      const de = ev.target.closest('[data-calib-del]');
+      if (de) deleteCalib(de.dataset.calibDel);
+    });
     $('#btnTourCancel').addEventListener('click', () => $('#dlgTour').close());
     $('#btnMapPick').addEventListener('click', () => $('#fileMap').click());
     $('#btnMapClear').addEventListener('click', () => { pendingMap = null; updateMapStatus(); });
