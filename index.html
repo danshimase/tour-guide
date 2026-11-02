@@ -171,6 +171,7 @@
       <div class="row-btns">
         <button class="btn" type="button" id="btnEditToggle">編集モードにする</button>
         <button class="btn" type="button" id="btnRouteEdit">コース編集（回るスポットと順番）</button>
+        <button class="btn" type="button" id="btnDict">読み方辞書（読み間違いを直す）</button>
         <button class="btn" type="button" id="btnTourSettings">ツアー設定（タイトル・構内図・PIN）</button>
       </div>
     </div>
@@ -338,6 +339,23 @@
       <button class="btn primary" type="submit">保存</button>
     </div>
   </form>
+</dialog>
+
+<!-- 読み方辞書 -->
+<dialog id="dlgDict">
+  <div class="dlg">
+    <div class="dlg-head"><h3>読み方辞書</h3><button class="btn small" type="button" id="btnDictCancel">キャンセル</button></div>
+    <p class="muted small">読み間違えた言葉を、1行に1語、「漢字=よみ」の形で書きます。画面の表示は漢字のままで、読み上げるときだけ置き換えます。長い言葉から先に置き換わります。</p>
+    <label class="field">辞書<textarea id="dictText" rows="12" spellcheck="false" autocapitalize="off" autocorrect="off" style="font-family: var(--font-mono); font-size: 16px"></textarea></label>
+    <div class="dlg-section">
+      <h4>試しに読む（編集中の辞書で）</h4>
+      <div class="row-btns" style="flex-wrap: nowrap"><input type="text" id="dictTest" placeholder="例：抄紙機で紙をつくります" style="flex: 1; min-width: 0"><button class="btn" type="button" id="btnDictTest">読む</button></div>
+      <p class="muted small" id="dictSpoken"></p>
+    </div>
+    <p class="muted small">漢字の直後に「（ひらがなの読み）」がある文は、辞書がなくても、かっこ内の読みで読みます。</p>
+    <p class="error small" id="dictError"></p>
+    <div class="dlg-foot"><button class="btn primary" type="button" id="btnDictSave">保存</button></div>
+  </div>
 </dialog>
 
 <!-- 基準点の追加 -->
