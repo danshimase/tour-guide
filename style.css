@@ -349,3 +349,6 @@ body[data-theme="light"] .tile-grid .route-opt { box-shadow: 0 1px 2px rgba(0, 0
 .calib-mark line { stroke: #af52de; }
 .calib-mark circle { fill: none; stroke: #af52de; }
 .calib-mark text { fill: #af52de; font-weight: 800; paint-order: stroke; stroke: rgba(255, 255, 255, 0.9); stroke-linejoin: round; text-anchor: start; dominant-baseline: central; font-family: var(--font); pointer-events: none; }
+#btnRoute { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; line-height: 44px; padding-top: 0; padding-bottom: 0; }
+#btnRoute.hidden { display: none !important; }
+.topbar .brand { flex: 1 1 260px; }

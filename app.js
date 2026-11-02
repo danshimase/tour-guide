@@ -33,7 +33,7 @@
     placingId: null,
     placingCalib: null,
     projector: null,
-    settings: { rate: 1.0, voiceJa: '', voiceEn: '', accLimit: 50, leftView: 'flow', theme: 'light' },
+    settings: { rate: 1.0, voiceJa: '', voiceEn: '', accLimit: 50, leftView: 'flow', theme: 'dark', themeSet: false },
     speaking: null,
     wakeLock: null,
     lastRender: 0,
@@ -51,6 +51,7 @@
     prev: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="2.5" height="14" rx="1" fill="currentColor"/><path d="M19 5v14L9 12z" fill="currentColor"/></svg>',
     next: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="16.5" y="5" width="2.5" height="14" rx="1" fill="currentColor"/><path d="M5 5v14l10-7z" fill="currentColor"/></svg>',
     qr: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1"/><rect x="14" y="3.5" width="6.5" height="6.5" rx="1"/><rect x="3.5" y="14" width="6.5" height="6.5" rx="1"/><path d="M14 14h3v3h-3zM18 18h2.5v2.5H18z" fill="currentColor" stroke="none"/></svg>',
+    back: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l-6 6 6 6"/></svg>',
     menu: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
     edit: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
     check: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
@@ -724,7 +725,7 @@
 
   // ライト／ダークの切り替え（初期はライト）
   function applyTheme() {
-    const t = state.settings.theme === 'dark' ? 'dark' : 'light';
+    const t = state.settings.themeSet && state.settings.theme === 'light' ? 'light' : 'dark';
     document.body.dataset.theme = t;
     document.querySelectorAll('.theme-seg button').forEach((b) => b.classList.toggle('on', b.dataset.theme === t));
     const m = document.querySelector('meta[name="theme-color"]');
@@ -2250,6 +2251,7 @@
   // =========================================================
   function bindEvents() {
     $('#btnStart').innerHTML = `${ICONS.play}<span>見学を開始</span>`;
+    $('#btnBack').innerHTML = `${ICONS.back}<span>コース選択</span>`;
     $('#btnQr').innerHTML = `${ICONS.qr}<span>QR</span>`;
     $('#btnMenu').innerHTML = `${ICONS.menu}<span>メニュー</span>`;
     $('#btnPrev').innerHTML = `${ICONS.prev}<span>前へ</span>`;
@@ -2269,6 +2271,11 @@
     });
 
     // ヘッダー
+    $('#btnBack').addEventListener('click', () => {
+      state.selectedId = null;
+      state.heroAutoId = null;
+      showWelcome();
+    });
     $('#btnQr').addEventListener('click', openQr);
     $('#btnQrClose').addEventListener('click', closeQr);
     $('#dlgQr').addEventListener('cancel', (ev) => { ev.preventDefault(); closeQr(); });
@@ -2336,6 +2343,7 @@
       const b = ev.target.closest('.theme-seg button');
       if (!b) return;
       state.settings.theme = b.dataset.theme;
+      state.settings.themeSet = true;
       saveSettings();
       applyTheme();
     });
