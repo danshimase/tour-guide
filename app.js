@@ -252,6 +252,15 @@
         out.routes.push({ id: rid, name: String(r.name || 'コース' + (i + 1)), spots: list });
       });
     }
+    out.dict = [];
+    if (Array.isArray(t.dict)) {
+      t.dict.forEach((e) => {
+        if (!e) return;
+        const from = String(e.from === undefined ? '' : e.from);
+        const to = String(e.to === undefined ? '' : e.to);
+        if (from.trim() && to.trim()) out.dict.push({ from: from.trim(), to: to.trim() });
+      });
+    }
     out.calib = [];
     if (Array.isArray(t.calib)) {
       t.calib.forEach((c, i) => {
@@ -574,6 +583,7 @@
     $('#btnAuto').classList.toggle('hidden', !state.selectedId);
     $('#btnEditToggle').textContent = state.editMode ? '編集モードを終了' : '編集モードにする';
     $('#btnTourSettings').classList.toggle('hidden', !state.editMode);
+    $('#btnDict').classList.toggle('hidden', !state.editMode);
     renderGpsChip();
   }
 
@@ -1057,6 +1067,19 @@
     speakCurrent();
   }
 
+  // ---------------------------------------------------------
+  // 読み方辞書：表示は元の文のまま、読み上げるときだけ置き換える（日本語のみ）
+  //   ① 漢字の直後の「（ひらがなの読み）」は、その読みを使う（例：抄紙機（しょうしき）→ しょうしき）
+  //   ② 台本の dict（長い語から順に）で置き換える
+  // ---------------------------------------------------------
+  function toSpeech(text, lang) {
+    if (lang === 'en') return text;
+    let t = String(text).replace(/([\u4e00-\u9fff\u3005\u30f6]+)\uff08([\u3041-\u3096\u30fc]+)\uff09/g, '$2');
+    const d = ((state.tour && state.tour.dict) || []).slice().sort((a, b) => b.from.length - a.from.length);
+    d.forEach((e) => { t = t.split(e.from).join(e.to); });
+    return t;
+  }
+
   function speakCurrent() {
     const sp = state.speaking;
     if (!sp) return;
@@ -1068,7 +1091,7 @@
     sp.paused = false;
     renderStage();
 
-    const u = new SpeechSynthesisUtterance(sp.sentences[sp.index]);
+    const u = new SpeechSynthesisUtterance(toSpeech(sp.sentences[sp.index], sp.lang));
     u.lang = sp.lang === 'en' ? 'en-US' : 'ja-JP';
     const v = pickVoice(sp.lang);
     if (v) u.voice = v;
@@ -1928,11 +1951,72 @@
     toast('削除しました');
   }
 
+  // ---------------------------------------------------------
+  // 読み方辞書の編集（1行に1語：「漢字=よみ」）
+  // ---------------------------------------------------------
+  function dictToText() {
+    return ((state.tour && state.tour.dict) || []).map((e) => `${e.from}=${e.to}`).join('\n');
+  }
+
+  function parseDictText(text) {
+    const out = [];
+    const bad = [];
+    String(text).split(/\r?\n/).forEach((line, i) => {
+      const l = line.trim();
+      if (!l) return;
+      const m = l.match(/^(.+?)\s*(?:=|＝|→|\t)\s*(.+)$/);
+      if (!m || !m[1].trim() || !m[2].trim()) { bad.push(i + 1); return; }
+      out.push({ from: m[1].trim(), to: m[2].trim() });
+    });
+    return { out, bad };
+  }
+
+  function openDict() {
+    $('#dlgMenu').close();
+    $('#dictText').value = dictToText();
+    $('#dictError').textContent = '';
+    $('#dictTest').value = '';
+    $('#dlgDict').showModal();
+  }
+
+  function speakTest(text) {
+    if (!('speechSynthesis' in window)) { toast('この端末は読み上げに対応していません'); return; }
+    const t = String(text).trim();
+    if (!t) return;
+    // 編集中の辞書で試せるよう、一時的に差し替えて変換する
+    const parsed = parseDictText($('#dictText').value);
+    const keep = state.tour.dict;
+    state.tour.dict = parsed.out;
+    const spoken = toSpeech(t, 'ja');
+    state.tour.dict = keep;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(spoken);
+    u.lang = 'ja-JP';
+    const v = pickVoice('ja');
+    if (v) u.voice = v;
+    u.rate = state.settings.rate;
+    speechSynthesis.speak(u);
+    $('#dictSpoken').textContent = `読み上げ：${spoken}`;
+  }
+
+  async function saveDict() {
+    const { out, bad } = parseDictText($('#dictText').value);
+    if (bad.length) {
+      $('#dictError').textContent = `${bad.join('、')} 行目は「漢字=よみ」の形ではありません`;
+      return;
+    }
+    state.tour.dict = out;
+    await saveTour();
+    await setDirty(true);
+    $('#dlgDict').close();
+    toast(`読み方辞書を保存しました（${out.length} 語）。他のiPadへは「書き出す」で渡してください`, 4500);
+  }
+
   function previewSpotText() {
     const text = $('#fText').value.trim();
     if (!text || !('speechSynthesis' in window)) return;
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
+    const u = new SpeechSynthesisUtterance(toSpeech(text, 'ja'));
     u.lang = 'ja-JP';
     const v = pickVoice('ja');
     if (v) u.voice = v;
@@ -2458,6 +2542,10 @@
 
     // ツアー設定
     $('#formTour').addEventListener('submit', saveTourSettings);
+    $('#btnDict').addEventListener('click', openDict);
+    $('#btnDictCancel').addEventListener('click', () => $('#dlgDict').close());
+    $('#btnDictSave').addEventListener('click', saveDict);
+    $('#btnDictTest').addEventListener('click', () => speakTest($('#dictTest').value));
     $('#btnCalibAdd').addEventListener('click', openCalibDialog);
     $('#btnCalibCancel').addEventListener('click', () => $('#dlgCalib').close());
     $('#formCalib').addEventListener('submit', submitCalib);
