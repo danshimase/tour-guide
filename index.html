@@ -17,22 +17,17 @@
 <body data-phase="prep" data-theme="dark">
 <div id="app" class="hidden">
   <header class="topbar">
-    <div class="brand">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <div>
-        <span class="phase-badge">見学中</span>
-        <h1 id="tourTitle">見学ガイド</h1>
-      </div>
+    <div class="tb-left">
+      <button class="btn" id="btnBack" type="button"></button>
+      <span class="phase-badge">見学中</span>
+      <button class="btn hidden" id="btnRoute" type="button" aria-label="コースを切り替える"></button>
     </div>
     <div class="chips">
-      <span class="chip" id="chipGps"><span class="dot"></span><span id="gpsText">位置情報 停止中</span></span>
-      <span class="chip" id="chipProgress">0 / 0</span>
+      <span class="chip hidden" id="chipGps"><span class="dot"></span><span id="gpsText"></span></span>
       <span class="chip chip-edit hidden" id="chipEdit">編集モード</span>
       <span class="chip chip-warn hidden" id="chipDirty">未書き出しの変更あり</span>
     </div>
     <div class="actions">
-      <button class="btn hidden" id="btnRoute" type="button"></button>
-      <button class="btn" id="btnBack" type="button"></button>
       <button class="btn" id="btnQr" type="button"></button>
       <button class="btn" id="btnLang" type="button">日本語</button>
       <button class="btn" id="btnMenu" type="button"></button>

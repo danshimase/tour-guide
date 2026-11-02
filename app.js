@@ -52,6 +52,7 @@
     next: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="16.5" y="5" width="2.5" height="14" rx="1" fill="currentColor"/><path d="M5 5v14l10-7z" fill="currentColor"/></svg>',
     qr: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1"/><rect x="14" y="3.5" width="6.5" height="6.5" rx="1"/><rect x="3.5" y="14" width="6.5" height="6.5" rx="1"/><path d="M14 14h3v3h-3zM18 18h2.5v2.5H18z" fill="currentColor" stroke="none"/></svg>',
     back: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l-6 6 6 6"/></svg>',
+    down: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
     menu: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
     edit: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
     check: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
@@ -561,14 +562,9 @@
 
   function renderHeader() {
     const t = state.tour;
-    $('#tourTitle').textContent = t ? t.title : '見学ガイド';
     if (t) {
-      const rs = routeSpots();
-      $('#chipProgress').textContent = `見学済み ${rs.filter((s) => state.visited.has(s.id)).length} / ${rs.length}`;
       $('#btnRoute').classList.remove('hidden');
-      $('#btnRoute').textContent = `コース：${activeRoute().name}`;
-    } else {
-      $('#chipProgress').textContent = '';
+      $('#btnRoute').innerHTML = `<span class="rt-name">${esc(activeRoute().name)}</span>${ICONS.down}`;
     }
     $('#btnRouteEdit').classList.toggle('hidden', !state.editMode);
     $('#chipEdit').classList.toggle('hidden', !state.editMode);
@@ -598,6 +594,7 @@
       }
     }
     $('#gpsText').textContent = text;
+    chip.classList.toggle('hidden', chip.classList.contains('gps-good') || state.gpsStatus === 'off');
 
     const box = $('#posReadout');
     if (state.pos) {
@@ -834,7 +831,6 @@
     }).join('');
 
     const html = `<div class="flow-head">
-        <div><div class="flow-sub">ROUTE</div><div class="flow-title">${esc(activeRoute().name)}</div></div>
         <div class="flow-prog">見学済み ${done} / ${rs.length}<div class="flow-bar"><i style="width:${pct}%"></i></div></div>
       </div>${here}` +
       (rs.length ? `<ol class="flow-list">${items}</ol>` : '<div class="flow-empty">このコースにはスポットがありません</div>');
