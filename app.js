@@ -2306,19 +2306,38 @@
   //   地図表示に切り替え、読んでいるスポットのピンを黄色、ほかを紺にする。
   //   「最初は○○です。次は○○です。…」と名前だけを読む（説明文は読まない）。
   // =========================================================
-  const cg = { playing: false, index: -1, prevSelected: null };
+  const cg = { playing: false, index: -1, prevSelected: null, leads: [] };
 
   function guideLang() {
     return state.lang === 'en' && tourHasEnglish() ? 'en' : 'ja';
+  }
+
+  // 中間のスポットの言い出しは、同じ言葉が続かないようランダムに変える（助詞「は」は「わ」と読ませるためかなで書く）
+  const GUIDE_LEAD_JA = ['つぎわ', 'そのあとわ', 'つづいて', 'それから', 'おつぎわ'];
+  const GUIDE_LEAD_EN = ['Next is ', 'After that is ', 'Then comes ', 'Following that is '];
+  const GUIDE_PAUSE_MS = 1400; // スポットとスポットの間のあき
+
+  // 中間のスポットの言い出しを、同じものが続かないようにランダムに決める（説明のたびに変わる）
+  function guideLeads(count, lang) {
+    const list = lang === 'en' ? GUIDE_LEAD_EN : GUIDE_LEAD_JA;
+    const out = [];
+    for (let k = 0; k < count; k++) {
+      const pool = list.filter((w) => w !== out[k - 1]);
+      out.push(pool[Math.floor(Math.random() * pool.length)]);
+    }
+    return out;
   }
 
   function guideSentence(i, rs, lang) {
     const n = rs.length;
     if (i >= n) return lang === 'en' ? `That is all ${n} ${n === 1 ? 'spot' : 'spots'}.` : `以上、全${n}か所です。`;
     const name = lang === 'en' && rs[i].nameEn ? rs[i].nameEn : rs[i].name;
-    if (lang === 'en') return `${i === 0 ? 'First is ' : i === n - 1 ? 'Last is ' : 'Next is '}${name}.`;
-    // 助詞の「は」は「わ」と読ませたいので、読み上げ用にかなで書く（辞書に頼らず確実に）
-    return `${i === 0 ? 'さいしょわ' : i === n - 1 ? 'さいごわ' : 'つぎわ'}${name}です。`;
+    const mid = Math.max(0, i - 1);
+    if (lang === 'en') {
+      return `${i === 0 ? 'First is ' : i === n - 1 ? 'Last is ' : (cg.leads[mid] || GUIDE_LEAD_EN[0])}${name}.`;
+    }
+    // 読み上げ用にかなで書く（辞書に頼らず確実に）
+    return `${i === 0 ? 'さいしょわ' : i === n - 1 ? 'さいごわ' : (cg.leads[mid] || GUIDE_LEAD_JA[0])}${name}です。`;
   }
 
   function guideButton() {
@@ -2344,8 +2363,12 @@
     u.rate = state.settings.rate;
     u.onend = () => {
       if (token !== speechToken || !cg.playing) return;
-      cg.index++;
-      guideStep();
+      // 次のスポットへ移る前に少しあけて、落ち着いて聞こえるようにする
+      setTimeout(() => {
+        if (token !== speechToken || !cg.playing) return;
+        cg.index++;
+        guideStep();
+      }, GUIDE_PAUSE_MS);
     };
     u.onerror = (e) => {
       if (token !== speechToken || !cg.playing) return;
@@ -2366,6 +2389,7 @@
     if (!routeSpots().length) { toast('このコースにはスポットがありません'); return; }
     if (state.speaking) return;
     cg.prevSelected = state.selectedId;
+    cg.leads = guideLeads(routeSpots().length, guideLang());
     cg.playing = true;
     cg.index = 0;
     state.guiding = true;
