@@ -14,6 +14,7 @@
   const PBKDF2_ITER = 250000;
 
   const state = {
+    guiding: false,
     tour: null,
     visited: new Set(),
     lang: 'ja',
@@ -750,7 +751,7 @@
     if (!state.tour) return;
     const panel = document.querySelector('.map-panel');
     // 地図上で位置を指定している間は、地図を出す
-    const view = (state.placingId || state.placingCalib) ? 'map' : state.settings.leftView;
+    const view = (state.placingId || state.placingCalib || state.guiding) ? 'map' : state.settings.leftView;
     panel.dataset.view = view;
     document.querySelectorAll('#viewToggle button').forEach((b) => b.classList.toggle('on', b.dataset.view === view));
     if (view !== 'flow') { lastFlowHtml = ''; lastFlowHero = null; return; }
@@ -1499,6 +1500,7 @@
   // コースの切り替え・編集
   // ---------------------------------------------------------
   async function setRoute(id, resetVisited) {
+    guideStop();
     state.routeId = id;
     await kvSet('routeId', id);
     if (resetVisited) {
@@ -2300,194 +2302,49 @@
   }
 
   // =========================================================
-  // コース説明：鳥瞰図（構内図）の上で、回る順番・移動手段・距離を説明する
-  //   説明文は、選択中のコースから自動で作る（台本の形式は変えない）。
-  //   スポット名の前には、地図のピンと同じ番号をオレンジ色の丸で付ける。読み上げでは名前だけを読む。
+  // コース説明：見学画面で、自動的に見学を進めるように回る順番を説明する
+  //   地図表示に切り替え、読んでいるスポットのピンを黄色、ほかを紺にする。
+  //   「最初は○○です。次は○○です。…」と名前だけを読む（説明文は読まない）。
   // =========================================================
-  const GUIDE_CAR_M_PER_MIN = 10000 / 60; // 見学中のフロー表示と同じ換算（時速10 km）
-  const GUIDE_WALK_M_PER_MIN = 80;        // 徒歩の目安（分速80 m）
-  const cg = { items: [], index: -1, playing: false, lang: 'ja' };
+  const cg = { playing: false, index: -1, prevSelected: null };
 
-  // 前後のスポット間の距離（直線）と、移動手段ごとの所要時間（分）。座標が無ければ null
-  function guideLeg(a, b) {
-    if (a.lat === null || a.lng === null || b.lat === null || b.lng === null) return null;
-    const dm = haversine(a.lat, a.lng, b.lat, b.lng);
-    const car = state.tour.travel === 'car';
-    return { dm, min: Math.max(1, Math.ceil(dm / (car ? GUIDE_CAR_M_PER_MIN : GUIDE_WALK_M_PER_MIN))) };
+  function guideLang() {
+    return state.lang === 'en' && tourHasEnglish() ? 'en' : 'ja';
   }
 
-  function guideDist(dm, lang) {
-    if (dm >= 1000) {
-      const km = (dm / 1000).toFixed(1);
-      return lang === 'en' ? `about ${km} kilometers` : `約${km}キロメートル`;
-    }
-    const m = Math.max(10, Math.round(dm / 10) * 10);
-    return lang === 'en' ? `about ${m} meters` : `約${m}メートル`;
-  }
-
-  // 説明の文を作る。各文は parts の並び：{ v: 文字 } か { s: スポットID }
-  function buildGuide(lang) {
-    const route = activeRoute();
-    const rs = routeSpots();
+  function guideSentence(i, rs, lang) {
     const n = rs.length;
-    const car = state.tour.travel === 'car';
-    const en = lang === 'en';
-    const legs = rs.slice(1).map((s, i) => guideLeg(rs[i], s));
-    const known = legs.filter(Boolean);
-    const totalM = known.reduce((a, l) => a + l.dm, 0);
-    const totalMin = car
-      ? known.reduce((a, l) => a + l.min, 0)
-      : Math.max(1, Math.ceil(totalM / GUIDE_WALK_M_PER_MIN));
-    const lost = legs.length - known.length;
-
-    const items = [];
-    const T = (v) => ({ v });
-    const S = (id) => ({ s: id });
-
-    items.push([T(en ? `This is the course "${route.name}".` : `「${route.name}」コースです。`)]);
-    items.push([T(en ? `It covers ${n} ${n === 1 ? 'spot' : 'spots'}.` : `全${n}か所を、番号の順に回ります。`)]);
-    if (known.length) {
-      let t;
-      if (en) {
-        t = car
-          ? `You will travel by car: about ${totalMin} minutes in total, ${guideDist(totalM, 'en')} in a straight line.`
-          : `You will travel on foot: ${guideDist(totalM, 'en')} in a straight line, roughly ${totalMin} minutes.`;
-        if (lost) t += ' Legs without coordinates are not included.';
-      } else {
-        t = car
-          ? `移動は車で、全体で約${totalMin}分、直線距離の合計は${guideDist(totalM, 'ja')}です。`
-          : `移動は徒歩で、直線距離の合計は${guideDist(totalM, 'ja')}、時間の目安は約${totalMin}分です。`;
-        if (lost) t += '座標のない区間は含みません。';
-      }
-      items.push([T(t)]);
-    }
-    rs.forEach((s, i) => {
-      const parts = [];
-      const last = i === n - 1 && n > 1;
-      if (en) {
-        parts.push(T(i === 0 ? 'First is ' : last ? 'Last is ' : 'Next is '), S(s.id), T('.'));
-      } else {
-        parts.push(T(i === 0 ? '最初は' : last ? '最後は' : '次は'), S(s.id), T('です。'));
-      }
-      const l = i > 0 ? legs[i - 1] : null;
-      if (l) {
-        if (en) {
-          parts.push(T(car
-            ? ` It is about ${l.min} minutes by car from the previous spot, ${guideDist(l.dm, 'en')} in a straight line.`
-            : ` It is ${guideDist(l.dm, 'en')} on foot from the previous spot, roughly ${l.min} minutes.`));
-        } else {
-          parts.push(T(car
-            ? `前のスポットから、車で約${l.min}分、直線距離で${guideDist(l.dm, 'ja')}です。`
-            : `前のスポットから、徒歩で約${l.min}分、${guideDist(l.dm, 'ja')}です。`));
-        }
-      }
-      items.push(parts);
-    });
-    items.push([T(en
-      ? `That is all ${n} ${n === 1 ? 'spot' : 'spots'}. When you are ready, start the tour.`
-      : `以上、全${n}か所です。準備ができたら「見学を開始」を押してください。`)]);
-    return items;
+    if (i >= n) return lang === 'en' ? `That is all ${n} ${n === 1 ? 'spot' : 'spots'}.` : `以上、全${n}か所です。`;
+    const name = lang === 'en' && rs[i].nameEn ? rs[i].nameEn : rs[i].name;
+    if (lang === 'en') return `${i === 0 ? 'First is ' : i === n - 1 ? 'Last is ' : 'Next is '}${name}.`;
+    return `${i === 0 ? '最初は' : i === n - 1 ? '最後は' : '次は'}${name}です。`;
   }
 
-  function guideSpotName(s) {
-    return cg.lang === 'en' && s.nameEn ? s.nameEn : s.name;
+  function guideButton() {
+    $('#btnCourseGuide').innerHTML = cg.playing
+      ? `${ICONS.stop}<span>説明を止める</span>`
+      : `${ICONS.guide}<span>コースを説明</span>`;
   }
 
-  function guideSpeechText(parts) {
-    return parts.map((p) => (p.s ? guideSpotName(findSpot(p.s)) : p.v)).join('');
-  }
-
-  function guideLineHtml(parts) {
-    return parts.map((p) => {
-      if (!p.s) return esc(p.v);
-      const sp = findSpot(p.s);
-      return `<span class="cg-no">${dispNo(sp)}</span>${esc(guideSpotName(sp))}`;
-    }).join('');
-  }
-
-  // 鳥瞰図（構内図）に、コースの経路とオレンジ色の番号ピンを描く
-  function renderGuideMap() {
-    const t = state.tour;
-    const { W, H } = mapSize();
-    const svg = $('#cgMap');
-    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    svg.style.aspectRatio = `${W} / ${H}`;
-    const bg = $('#cgBg');
-    const routeG = $('#cgRoute');
-    const pins = $('#cgPins');
-    bg.textContent = '';
-    routeG.textContent = '';
-    pins.textContent = '';
-    if (t.map) {
-      const img = svgEl('image', { x: 0, y: 0, width: W, height: H, preserveAspectRatio: 'none' });
-      img.setAttribute('href', t.map.image);
-      bg.appendChild(img);
-    } else {
-      for (let x = 0; x <= W; x += 50) bg.appendChild(svgEl('line', { x1: x, y1: 0, x2: x, y2: H, class: 'grid-line' }));
-      for (let y = 0; y <= H; y += 50) bg.appendChild(svgEl('line', { x1: 0, y1: y, x2: W, y2: y, class: 'grid-line' }));
-    }
-
-    const r = Math.max(14, W / 45);
-    const rs = routeSpots();
-    const inRange = (p) => p.x > -W * 0.3 && p.x < W * 1.3 && p.y > -H * 0.3 && p.y < H * 1.3;
-    const placed = rs.map((s) => ({ s, p: spotXY(s) })).filter((o) => o.p && inRange(o.p));
-    if (placed.length >= 2) {
-      const pts = placed.map((o) => `${o.p.x.toFixed(1)},${o.p.y.toFixed(1)}`).join(' ');
-      routeG.appendChild(svgEl('polyline', { points: pts, class: 'cg-route-casing', 'stroke-width': Math.max(6, r / 2.2) }));
-      routeG.appendChild(svgEl('polyline', { points: pts, class: 'cg-route', 'stroke-width': Math.max(3, r / 4) }));
-    }
-    placed.forEach(({ s, p }) => {
-      const g = svgEl('g', { class: 'cg-pin', transform: `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`, 'data-id': s.id });
-      g.appendChild(svgEl('circle', { class: 'cg-pulse', r, 'stroke-width': r / 4 }));
-      g.appendChild(svgEl('circle', { class: 'cg-pin-body', r, 'stroke-width': r / 6 }));
-      const tx = svgEl('text', { 'font-size': r * 1.05 });
-      tx.textContent = String(dispNo(s));
-      g.appendChild(tx);
-      const label = svgEl('text', { class: 'cg-pin-label', x: 0, y: r * 2.1, 'font-size': r * 0.85, 'text-anchor': 'middle', 'stroke-width': r / 3.5 });
-      label.textContent = guideSpotName(s);
-      g.appendChild(label);
-      pins.appendChild(g);
-    });
-
-    const located = rs.filter((s) => spotXY(s)).length;
-    const msgs = [];
-    if (rs.length - located > 0) msgs.push(`地図に未配置のスポット ${rs.length - located} 件`);
-    if (located - placed.length > 0) msgs.push(`地図の範囲外のスポット ${located - placed.length} 件`);
-    $('#cgNote').textContent = msgs.join(' ／ ');
-  }
-
-  // いま読んでいる文に出てくるスポットのピンを強調する（index が -1 なら全解除）
-  function guideMark() {
-    const ids = new Set();
-    if (cg.index >= 0 && cg.items[cg.index]) cg.items[cg.index].forEach((p) => { if (p.s) ids.add(p.s); });
-    const pins = $('#cgPins');
-    pins.querySelectorAll('.cg-pin').forEach((g) => {
-      const on = ids.has(g.dataset.id);
-      g.classList.toggle('on', on);
-      if (on) pins.appendChild(g); // 強調するピンは最前面に
-    });
-    const lines = $('#cgText').querySelectorAll('.cg-line');
-    lines.forEach((li, i) => li.classList.toggle('current', i === cg.index));
-    if (cg.index >= 0 && lines[cg.index]) lines[cg.index].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    $('#btnCgPlay').innerHTML = cg.playing
-      ? `${ICONS.stop}<span>停止</span>`
-      : `${ICONS.play}<span>説明を読み上げる</span>`;
-  }
-
-  function guideSpeak() {
+  function guideStep() {
     if (!cg.playing) return;
-    if (cg.index >= cg.items.length) { guideStop(); return; }
-    guideMark();
+    const rs = routeSpots();
+    if (cg.index > rs.length) { guideStop(); return; }
+    const spot = rs[cg.index] || null;
+    if (spot) state.selectedId = spot.id;
+    renderSide();
+    renderPins();
     const token = ++speechToken;
-    const u = new SpeechSynthesisUtterance(toSpeech(guideSpeechText(cg.items[cg.index]), cg.lang));
-    u.lang = cg.lang === 'en' ? 'en-US' : 'ja-JP';
-    const v = pickVoice(cg.lang);
+    const lang = guideLang();
+    const u = new SpeechSynthesisUtterance(toSpeech(guideSentence(cg.index, rs, lang), lang));
+    u.lang = lang === 'en' ? 'en-US' : 'ja-JP';
+    const v = pickVoice(lang);
     if (v) u.voice = v;
     u.rate = state.settings.rate;
     u.onend = () => {
       if (token !== speechToken || !cg.playing) return;
       cg.index++;
-      guideSpeak();
+      guideStep();
     };
     u.onerror = (e) => {
       if (token !== speechToken || !cg.playing) return;
@@ -2503,51 +2360,31 @@
     }
   }
 
-  function guidePlayFrom(i) {
+  function guideStart() {
     if (!('speechSynthesis' in window)) { toast('この端末は読み上げに対応していません'); return; }
+    if (!routeSpots().length) { toast('このコースにはスポットがありません'); return; }
+    if (state.speaking) return;
+    cg.prevSelected = state.selectedId;
     cg.playing = true;
-    cg.index = i;
-    guideSpeak();
+    cg.index = 0;
+    state.guiding = true;
+    document.body.classList.add('guiding');
+    guideButton();
+    guideStep();
   }
 
   function guideStop() {
+    if (!cg.playing && !state.guiding) return;
     speechToken++;
     if ('speechSynthesis' in window) speechSynthesis.cancel();
     cg.playing = false;
     cg.index = -1;
-    guideMark();
-  }
-
-  function openCourseGuide() {
-    const rs = routeSpots();
-    if (!rs.length) { toast('このコースにはスポットがありません'); return; }
-    cg.lang = state.lang === 'en' && tourHasEnglish() ? 'en' : 'ja';
-    cg.items = buildGuide(cg.lang);
-    cg.index = -1;
-    cg.playing = false;
-    const route = activeRoute();
-    $('#cgTitle').textContent = route.name;
-    const car = state.tour.travel === 'car';
-    const known = rs.slice(1).map((s, i) => guideLeg(rs[i], s)).filter(Boolean);
-    const en = cg.lang === 'en';
-    const facts = [en ? `${rs.length} ${rs.length === 1 ? 'spot' : 'spots'}` : `全 ${rs.length} か所`];
-    if (known.length) {
-      const totalM = known.reduce((a, l) => a + l.dm, 0);
-      const totalMin = car ? known.reduce((a, l) => a + l.min, 0) : Math.max(1, Math.ceil(totalM / GUIDE_WALK_M_PER_MIN));
-      facts.push(
-        en ? (car ? 'By car' : 'On foot') : (car ? '移動：車' : '移動：徒歩'),
-        en ? `about ${totalMin} min` : `約 ${totalMin} 分`,
-        en ? `${guideDist(totalM, 'en')} (straight line)` : `直線 ${guideDist(totalM, 'ja')}`
-      );
-    }
-    $('#cgFacts').innerHTML = facts.map((f) => `<span class="cg-fact">${esc(f)}</span>`).join('');
-    $('#cgText').innerHTML = cg.items.map((parts, i) =>
-      `<li class="cg-line" data-i="${i}">${guideLineHtml(parts)}</li>`).join('');
-    renderGuideMap();
-    guideMark();
-    $('#dlgCourseGuide').showModal();
-    $('#cgText').scrollTop = 0;
-    $('#dlgCourseGuide').scrollTop = 0;
+    state.guiding = false;
+    document.body.classList.remove('guiding');
+    state.selectedId = cg.prevSelected && findSpot(cg.prevSelected) ? cg.prevSelected : null;
+    guideButton();
+    renderSide();
+    renderPins();
   }
 
   // =========================================================
@@ -2583,7 +2420,7 @@
   // =========================================================
   function bindEvents() {
     $('#btnStart').innerHTML = `${ICONS.play}<span>見学を開始</span>`;
-    $('#btnCourseGuide').innerHTML = `${ICONS.guide}<span>コースを説明</span>`;
+    guideButton();
     $('#btnBack').innerHTML = `${ICONS.back}<span>コース選択</span>`;
     $('#btnQr').innerHTML = `${ICONS.qr}<span>QR</span>`;
     $('#btnMenu').innerHTML = `${ICONS.menu}<span>メニュー</span>`;
@@ -2605,6 +2442,7 @@
 
     // ヘッダー
     $('#btnBack').addEventListener('click', () => {
+      guideStop();
       state.selectedId = null;
       state.heroAutoId = null;
       showWelcome();
@@ -2631,14 +2469,7 @@
 
     // コース
     $('#btnRoute').addEventListener('click', openRoutePick);
-    $('#btnCourseGuide').addEventListener('click', openCourseGuide);
-    $('#btnCgClose').addEventListener('click', () => $('#dlgCourseGuide').close());
-    $('#btnCgPlay').addEventListener('click', () => { if (cg.playing) guideStop(); else guidePlayFrom(0); });
-    $('#cgText').addEventListener('click', (ev) => {
-      const li = ev.target.closest('.cg-line');
-      if (li) guidePlayFrom(Number(li.dataset.i));
-    });
-    $('#dlgCourseGuide').addEventListener('close', guideStop);
+    $('#btnCourseGuide').addEventListener('click', () => { if (cg.playing) guideStop(); else guideStart(); });
     $('#btnRoutePickClose').addEventListener('click', () => $('#dlgRoutePick').close());
     $('#btnCustomOpen').addEventListener('click', () => openCustom(false));
     $('#btnWelcomeCustom').addEventListener('click', () => openCustom(false));
