@@ -94,6 +94,7 @@
           <div class="wl-badges"><span class="phase-badge">準備中</span><span class="chip" id="welcomeText"></span></div>
           <h1 id="welcomeTitle">見学ガイド</h1>
         </div>
+        <button class="btn guide-btn" id="btnCourseGuide" type="button"></button>
         <div class="seg theme-seg" role="group" aria-label="表示の明るさ"><button type="button" data-theme="light">ライト</button><button type="button" data-theme="dark">ダーク</button></div>
         <button class="link-btn" id="btnWelcomeImport2" type="button">台本ファイルを読み込み直す</button>
       </header>
@@ -259,6 +260,36 @@
 </dialog>
 
 <!-- コースの切り替え -->
+<!-- コース説明：鳥瞰図の上で、回る順番・移動手段・距離を説明する -->
+<dialog id="dlgCourseGuide" class="dlg-guide">
+  <div class="dlg cg">
+    <div class="dlg-head">
+      <div class="cg-title">
+        <div class="cg-sub">COURSE GUIDE</div>
+        <h3 id="cgTitle"></h3>
+      </div>
+      <div class="cg-actions">
+        <button class="btn primary" type="button" id="btnCgPlay"></button>
+        <button class="btn small" type="button" id="btnCgClose">閉じる</button>
+      </div>
+    </div>
+    <div class="cg-body">
+      <div class="cg-mapwrap">
+        <svg id="cgMap" class="cg-map" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" viewBox="0 0 1000 700">
+          <g id="cgBg"></g>
+          <g id="cgRoute"></g>
+          <g id="cgPins"></g>
+        </svg>
+        <div class="cg-note" id="cgNote"></div>
+      </div>
+      <div class="cg-side">
+        <div class="cg-facts" id="cgFacts"></div>
+        <ol class="cg-text" id="cgText"></ol>
+      </div>
+    </div>
+  </div>
+</dialog>
+
 <dialog id="dlgRoutePick">
   <div class="dlg">
     <div class="dlg-head"><h3>見学コースを選ぶ</h3><button class="btn small" type="button" id="btnRoutePickClose">閉じる</button></div>
