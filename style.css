@@ -365,11 +365,10 @@ body[data-theme="light"] .tile-grid .route-opt { box-shadow: 0 1px 2px rgba(0, 0
 .flow-head .flow-prog { text-align: left; font-size: 15px; }
 .flow-head .flow-bar { width: min(320px, 60vw); height: 8px; }
 
-/* ---------- コース説明（見学画面で自動的に回る）：読んでいるスポット＝黄色、ほかは紺 ---------- */
+/* ---------- コース説明（見学画面で自動的に回る）：読んでいるスポット＝オレンジ（見学中のアクセント色）、ほかは紺 ---------- */
 .guide-btn { gap: 8px; }
 .guide-btn svg { width: 20px; height: 20px; flex: none; }
 body.guiding[data-phase] .pin .pin-body, body.guiding[data-phase] .pin.visited .pin-body { fill: #1b2a6b; stroke: #fff; }
-body.guiding[data-phase] .pin.hero .pin-body { fill: #ffd60a; stroke: #fff; }
-body.guiding[data-phase] .pin.hero text:not(.pin-label) { fill: #1a1a1a; }
-body.guiding[data-phase] .pin .pulse { stroke: #ffd60a; }
-body.guiding[data-phase] .pin.hero .pin-label { fill: #ffd60a; stroke: rgba(10, 17, 30, 0.9); stroke-width: 4px; }
+body.guiding[data-phase] .pin.hero .pin-body { fill: var(--accent); stroke: #fff; }
+body.guiding[data-phase] .pin .pulse { stroke: var(--accent); }
+body.guiding[data-phase] .pin.hero .pin-label { fill: var(--accent); stroke: rgba(10, 17, 30, 0.9); stroke-width: 4px; }

@@ -2317,7 +2317,8 @@
     if (i >= n) return lang === 'en' ? `That is all ${n} ${n === 1 ? 'spot' : 'spots'}.` : `以上、全${n}か所です。`;
     const name = lang === 'en' && rs[i].nameEn ? rs[i].nameEn : rs[i].name;
     if (lang === 'en') return `${i === 0 ? 'First is ' : i === n - 1 ? 'Last is ' : 'Next is '}${name}.`;
-    return `${i === 0 ? '最初は' : i === n - 1 ? '最後は' : '次は'}${name}です。`;
+    // 助詞の「は」は「わ」と読ませたいので、読み上げ用にかなで書く（辞書に頼らず確実に）
+    return `${i === 0 ? 'さいしょわ' : i === n - 1 ? 'さいごわ' : 'つぎわ'}${name}です。`;
   }
 
   function guideButton() {
